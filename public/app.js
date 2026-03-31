@@ -14,6 +14,7 @@ let markerMap = new Map();
 let locations = [];
 let activeLocationId = null;
 let toastTimer = null;
+let myLocationMarker = null;
 
 let ui = {};  // 延迟初始化
 
@@ -48,7 +49,8 @@ function initUI() {
     locationCount: document.getElementById('locationCount'),
     geocodedCount: document.getElementById('geocodedCount'),
     toast: document.getElementById('toast'),
-    searchSuggestions: document.getElementById('searchSuggestions')
+    searchSuggestions: document.getElementById('searchSuggestions'),
+    locateMeBtn: document.getElementById('locateMeBtn')
   };
 }
 
@@ -216,6 +218,79 @@ function fitAllMarkers() {
   }
 
   map.setFitView(markers, false, [56, 56, 56, 56]);
+}
+
+function locateMe() {
+  if (!navigator.geolocation) {
+    showToast('您的浏览器不支持地理位置功能', 'error');
+    return;
+  }
+
+  setButtonBusy(ui.locateMeBtn, true, '定位中...');
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      const accuracy = position.coords.accuracy;
+
+      // 在地图上标记当前位置
+      if (myLocationMarker) {
+        myLocationMarker.setMap(null);
+      }
+
+      myLocationMarker = new AMap.Marker({
+        position: [longitude, latitude],
+        icon: new AMap.Icon({
+          size: new AMap.Size(32, 32),
+          imageSize: new AMap.Size(32, 32),
+          imageUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxMiIgZmlsbD0iIzNCODJGNCIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjYiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMyIgZmlsbD0iIzNCODJGNCIvPjwvc3ZnPg=='
+        }),
+        offset: new AMap.Pixel(-16, -16),
+        map
+      });
+
+      // 添加点击事件，显示信息窗口
+      const infoWindow = new AMap.InfoWindow({
+        content: `<div style="padding:8px 10px;min-width:180px;"><strong style="font-size:14px;">我的位置</strong><p style="color:#6b7280;font-size:12px;margin:8px 0 0;">精度：约${Math.round(accuracy)}米</p></div>`,
+        offset: new AMap.Pixel(0, -30)
+      });
+
+      myLocationMarker.on('click', () => {
+        infoWindow.open(map, myLocationMarker.getPosition());
+      });
+
+      // 地图中心移动到当前位置
+      map.setCenter([longitude, latitude]);
+      map.setZoom(16);
+
+      showToast(`已定位到您的当前位置`, 'success');
+      setButtonBusy(ui.locateMeBtn, false);
+    },
+    (error) => {
+      let message = '定位失败：';
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          message += '您拒绝了地理位置请求';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          message += '无法获取位置信息';
+          break;
+        case error.TIMEOUT:
+          message += '定位请求超时';
+          break;
+        default:
+          message += error.message;
+      }
+      showToast(message, 'error');
+      setButtonBusy(ui.locateMeBtn, false);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
+  );
 }
 
 async function addSingleLocation() {
@@ -569,6 +644,7 @@ function bindEvents() {
   ui.addSingleBtn.addEventListener('click', addSingleLocation);
   ui.addBatchBtn.addEventListener('click', addBatchLocations);
   ui.fitMarkersBtn.addEventListener('click', fitAllMarkers);
+  ui.locateMeBtn.addEventListener('click', locateMe);
 
   ui.singleInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
