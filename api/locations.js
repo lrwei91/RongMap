@@ -3,56 +3,71 @@ const { kv } = require('@vercel/kv');
 const LOCATIONS_KEY = 'locations';
 
 async function getLocations() {
-  const data = await kv.get(LOCATIONS_KEY);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = await kv.get(LOCATIONS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (err) {
+    console.error('getLocations error:', err.message);
+    throw err;
+  }
 }
 
 async function saveLocations(locations) {
-  await kv.set(LOCATIONS_KEY, JSON.stringify(locations));
+  try {
+    await kv.set(LOCATIONS_KEY, JSON.stringify(locations));
+  } catch (err) {
+    console.error('saveLocations error:', err.message);
+    throw err;
+  }
 }
 
 module.exports = async function handler(req, res) {
-  if (req.method === 'GET') {
-    const locations = await getLocations();
-    return res.status(200).json(locations);
-  }
-
-  if (req.method === 'POST') {
-    const { name, address, latitude, longitude, reason } = req.body;
-
-    if (!name || !address) {
-      return res.status(400).json({ error: '名称和地址不能为空' });
+  try {
+    if (req.method === 'GET') {
+      const locations = await getLocations();
+      return res.status(200).json(locations);
     }
 
-    const locations = await getLocations();
-    const newLocation = {
-      id: Date.now().toString(),
-      name,
-      address,
-      reason: reason || null,
-      latitude: latitude || null,
-      longitude: longitude || null,
-      createdAt: new Date().toISOString()
-    };
+    if (req.method === 'POST') {
+      const { name, address, latitude, longitude, reason } = req.body;
 
-    locations.push(newLocation);
-    await saveLocations(locations);
+      if (!name || !address) {
+        return res.status(400).json({ error: '名称和地址不能为空' });
+      }
 
-    return res.status(200).json(newLocation);
-  }
+      const locations = await getLocations();
+      const newLocation = {
+        id: Date.now().toString(),
+        name,
+        address,
+        reason: reason || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        createdAt: new Date().toISOString()
+      };
 
-  if (req.method === 'DELETE') {
-    const { id } = req.query;
-    const locations = await getLocations();
-    const filtered = locations.filter(loc => loc.id !== id);
+      locations.push(newLocation);
+      await saveLocations(locations);
 
-    if (filtered.length === locations.length) {
-      return res.status(404).json({ error: '未找到该地点' });
+      return res.status(200).json(newLocation);
     }
 
-    await saveLocations(filtered);
-    return res.status(200).json({ success: true });
-  }
+    if (req.method === 'DELETE') {
+      const { id } = req.query;
+      const locations = await getLocations();
+      const filtered = locations.filter(loc => loc.id !== id);
 
-  return res.status(405).json({ error: '方法不允许' });
+      if (filtered.length === locations.length) {
+        return res.status(404).json({ error: '未找到该地点' });
+      }
+
+      await saveLocations(filtered);
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ error: '方法不允许' });
+  } catch (err) {
+    console.error('handler error:', err);
+    return res.status(500).json({ error: '服务器错误：' + err.message });
+  }
 };
