@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>福州地图标记</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="text/javascript">
+    window._AMapSecurityConfig = {
+      securityJsCode: 'db67e6113b81508f33ae7b14dbc42358'
+    };
+  </script>
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=806754933c281cf11a95842b5f9cef59"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="panel-header">
+      <div>
+        <p class="eyebrow">FUZHOU LOCATION BOARD</p>
+        <h1>福州地点管理台</h1>
+        <p class="subtitle">录入地点、自动地理编码、在地图中快速定位。</p>
+      </div>
+      <div class="stats" aria-label="地点统计信息">
+        <div class="stat-card">
+          <span class="stat-label">总地点</span>
+          <strong id="locationCount">0</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">已定位</span>
+          <strong id="geocodedCount">0</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="control-panel" aria-label="地点输入与管理面板">
+        <section class="card input-section">
+          <h2>添加地点</h2>
+          <label for="singleInput">单条地址</label>
+          <div class="search-box">
+            <input type="text" id="singleInput" placeholder="例如：群哥水煮蛙 仓山万达店" autocomplete="off">
+            <div id="searchSuggestions" class="search-suggestions"></div>
+          </div>
+          <label for="reasonInput">添加理由（可选）</label>
+          <input type="text" id="reasonInput" placeholder="例如：朋友推荐、想吃蛙">
+          <button type="button" id="addSingleBtn" class="btn btn-primary">添加并定位</button>
+
+          <div class="divider" role="separator" aria-label="分隔线">
+            <span>或批量导入</span>
+          </div>
+
+          <label for="batchInput">批量地址（每行一个）</label>
+          <textarea id="batchInput" rows="6" placeholder="群哥水煮蛙 仓山万达店&#10;福州西湖公园&#10;三坊七巷"></textarea>
+          <button type="button" id="addBatchBtn" class="btn btn-secondary">批量添加并定位</button>
+        </section>
+
+        <section class="card locations-section">
+          <div class="section-head">
+            <h2>地点列表</h2>
+            <button type="button" id="fitMarkersBtn" class="btn btn-ghost">定位全部</button>
+          </div>
+          <div id="locationsList" class="locations-list" aria-live="polite"></div>
+        </section>
+      </aside>
+
+      <main class="map-panel" aria-label="地图展示区">
+        <div class="map-head">
+          <p>点击列表中的地点可在地图中聚焦，点击标记可查看详细地址。</p>
+        </div>
+        <div id="map"></div>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

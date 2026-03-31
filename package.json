@@ -1,0 +1,14 @@
+{
+  "name": "fuzhou-map",
+  "version": "1.0.0",
+  "description": "福州地区地图标记应用",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@vercel/kv": "^3.0.0",
+    "express": "^4.18.2"
+  }
+}
