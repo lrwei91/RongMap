@@ -5,7 +5,8 @@ const LOCATIONS_KEY = 'locations';
 async function getLocations() {
   try {
     const data = await kv.get(LOCATIONS_KEY);
-    return data ? JSON.parse(data) : [];
+    // kv.get 已经返回解析后的数据，不需要再 JSON.parse
+    return data || [];
   } catch (err) {
     console.error('getLocations error:', err.message);
     throw err;
@@ -14,7 +15,7 @@ async function getLocations() {
 
 async function saveLocations(locations) {
   try {
-    await kv.set(LOCATIONS_KEY, JSON.stringify(locations));
+    await kv.set(LOCATIONS_KEY, locations);
   } catch (err) {
     console.error('saveLocations error:', err.message);
     throw err;
