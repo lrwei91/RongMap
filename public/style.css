@@ -715,11 +715,22 @@ textarea {
     flex-direction: column;
     align-items: flex-start;
     padding: 14px;
+    gap: 12px;
   }
 
   .stats {
     width: 100%;
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .header-actions .btn {
+    flex: 1;
+    justify-content: center;
   }
 
   .card {
@@ -731,7 +742,41 @@ textarea {
     flex-direction: column;
   }
 
+  .section-actions {
+    width: 100%;
+  }
+
+  .filter-select,
+  .search-locations-input {
+    flex: 1;
+    min-width: 0;
+  }
+
   .btn-ghost {
+    width: 100%;
+  }
+
+  .location-item {
+    grid-template-columns: auto 1fr;
+    padding: 10px;
+  }
+
+  .location-actions {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .btn-edit,
+  .btn-delete {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .dialog {
+    margin: 10px;
+    padding: 16px;
+    min-width: auto;
     width: 100%;
   }
 }
@@ -744,4 +789,38 @@ textarea {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* 移动端触摸优化 */
+@media (hover: none) and (pointer: coarse) {
+  .btn {
+    min-height: 48px;
+  }
+
+  .location-item {
+    padding: 14px;
+  }
+
+  .btn-edit,
+  .btn-delete {
+    width: 44px;
+    height: 44px;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* 地点列表滚动优化 */
+.locations-list {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 防止移动端正文滚动时地图也滚动 */
+body.menu-open {
+  position: fixed;
+  overflow: hidden;
 }
