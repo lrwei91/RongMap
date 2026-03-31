@@ -8,6 +8,17 @@ window._AMapSecurityConfig = {
 
 const FUZHOU_CENTER = [119.296531, 26.061473];
 
+// 分类配置
+const CATEGORIES = {
+  food: { label: '餐饮美食', icon: '🍽️', color: '#ef4444' },
+  spot: { label: '景点休闲', icon: '🏞️', color: '#10b981' },
+  shopping: { label: '购物消费', icon: '🛍️', color: '#8b5cf6' },
+  traffic: { label: '交通枢纽', icon: '🚇', color: '#3b82f6' },
+  medical: { label: '医疗服务', icon: '🏥', color: '#f59e0b' },
+  education: { label: '教育培训', icon: '📚', color: '#06b6d4' },
+  other: { label: '其他', icon: '📍', color: '#6b7280' }
+};
+
 let map = null;
 let markers = [];
 let markerMap = new Map();
@@ -15,23 +26,24 @@ let locations = [];
 let activeLocationId = null;
 let toastTimer = null;
 let myLocationMarker = null;
+let selectedLocations = new Set();
 
-let ui = {};  // 延迟初始化
+let ui = {};
 
 let searchDebounceTimer = null;
 let selectedSuggestion = null;
+let filterCategory = '';
+let searchQuery = '';
 
 function initMap(callback) {
   map = new AMap.Map('map', {
     zoom: 12,
     center: FUZHOU_CENTER,
     viewMode: '2D',
-    // 使用内置控件配置
-    zoomControl: true,    // 显示缩放控件
-    scale: true           // 显示比例尺
+    zoomControl: true,
+    scale: true
   });
 
-  // 插件加载完成后执行回调
   setTimeout(() => {
     if (callback) callback();
   }, 100);
@@ -50,7 +62,23 @@ function initUI() {
     geocodedCount: document.getElementById('geocodedCount'),
     toast: document.getElementById('toast'),
     searchSuggestions: document.getElementById('searchSuggestions'),
-    locateMeBtn: document.getElementById('locateMeBtn')
+    locateMeBtn: document.getElementById('locateMeBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    filterCategory: document.getElementById('filterCategory'),
+    searchInput: document.getElementById('searchInput'),
+    bulkDeleteBtn: document.getElementById('bulkDeleteBtn'),
+    selectedCount: document.getElementById('selectedCount'),
+    categorySelect: document.getElementById('categorySelect'),
+    // 编辑对话框
+    editDialog: document.getElementById('editDialog'),
+    editLocationId: document.getElementById('editLocationId'),
+    editName: document.getElementById('editName'),
+    editAddress: document.getElementById('editAddress'),
+    editCategory: document.getElementById('editCategory'),
+    editReason: document.getElementById('editReason'),
+    saveEditBtn: document.getElementById('saveEditBtn'),
+    cancelEditBtn: document.getElementById('cancelEditBtn'),
+    dialogClose: document.querySelector('.dialog-close')
   };
 }
 
@@ -105,6 +133,16 @@ async function requestJson(url, options = {}) {
   return data;
 }
 
+function getFilteredLocations() {
+  return locations.filter(loc => {
+    const matchCategory = !filterCategory || loc.category === filterCategory;
+    const matchSearch = !searchQuery ||
+      loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      loc.address.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchCategory && matchSearch;
+  });
+}
+
 async function loadLocations() {
   try {
     locations = await requestJson('/api/locations');
@@ -122,20 +160,33 @@ function updateStats() {
   ui.geocodedCount.textContent = String(geocodedCount);
 }
 
+function getCategoryLabel(category) {
+  if (!category || !CATEGORIES[category]) return '';
+  return `${CATEGORIES[category].icon} ${CATEGORIES[category].label}`;
+}
+
 function renderLocationsList() {
   updateStats();
 
-  if (locations.length === 0) {
+  const filtered = getFilteredLocations();
+
+  if (filtered.length === 0) {
     ui.locationsList.innerHTML = '<div class="empty-state">暂无地点，先添加一条地址开始。</div>';
+    ui.bulkDeleteBtn.style.display = 'none';
     return;
   }
 
-  ui.locationsList.innerHTML = locations.map((loc) => {
+  ui.locationsList.innerHTML = filtered.map((loc) => {
     const hasCoords = hasCoordinates(loc);
     const activeClass = activeLocationId === loc.id ? 'is-active' : '';
+    const selectedClass = selectedLocations.has(loc.id) ? 'is-selected' : '';
+    const categoryBadge = loc.category ? `<span class="category-badge" style="background:${CATEGORIES[loc.category]?.color || '#6b7280'}20;color:${CATEGORIES[loc.category]?.color || '#6b7280'}">${getCategoryLabel(loc.category)}</span>` : '';
 
     return `
-      <article class="location-item ${activeClass}" data-id="${escapeHtml(loc.id)}">
+      <article class="location-item ${activeClass} ${selectedClass}" data-id="${escapeHtml(loc.id)}">
+        <label class="location-checkbox">
+          <input type="checkbox" data-action="select" data-id="${escapeHtml(loc.id)}" ${selectedLocations.has(loc.id) ? 'checked' : ''}>
+        </label>
         <div
           class="location-main"
           role="button"
@@ -144,7 +195,10 @@ function renderLocationsList() {
           data-action="focus"
           data-id="${escapeHtml(loc.id)}"
         >
-          <p class="location-name">${escapeHtml(loc.name)}</p>
+          <div class="location-header">
+            <p class="location-name">${escapeHtml(loc.name)}</p>
+            ${categoryBadge}
+          </div>
           <p class="location-address">${escapeHtml(loc.address)}</p>
           ${loc.reason ? `<p class="location-reason"><span>理由：</span>${escapeHtml(loc.reason)}</p>` : ''}
           <div class="location-meta">
@@ -153,11 +207,20 @@ function renderLocationsList() {
           </div>
         </div>
         <div class="location-actions">
+          <button type="button" class="btn-edit" data-action="edit" data-id="${escapeHtml(loc.id)}" aria-label="编辑 ${escapeHtml(loc.name)}">✏️</button>
           <button type="button" class="btn-delete" data-action="delete" data-id="${escapeHtml(loc.id)}" aria-label="删除 ${escapeHtml(loc.name)}">×</button>
         </div>
       </article>
     `;
   }).join('');
+
+  // 更新批量删除按钮
+  if (selectedLocations.size > 0) {
+    ui.selectedCount.textContent = selectedLocations.size;
+    ui.bulkDeleteBtn.style.display = 'flex';
+  } else {
+    ui.bulkDeleteBtn.style.display = 'none';
+  }
 }
 
 function renderMarkers() {
@@ -165,24 +228,47 @@ function renderMarkers() {
   markers = [];
   markerMap = new Map();
 
-  locations.forEach((loc) => {
+  const filtered = getFilteredLocations();
+
+  filtered.forEach((loc) => {
     if (!hasCoordinates(loc)) return;
+
+    const categoryColor = CATEGORIES[loc.category]?.color || '#1d4ed8';
+
+    // 创建自定义标记图标
+    const markerSvg = `
+      <svg width="32" height="40" viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 0C7.163 0 0 7.163 0 16C0 26 16 40 16 40C16 40 32 26 32 16C32 7.163 24.837 0 16 0Z" fill="${categoryColor}"/>
+        <circle cx="16" cy="14" r="6" fill="white"/>
+      </svg>
+    `;
+    const encodedSvg = encodeURIComponent(markerSvg).replace(/'/g, '%27').replace(/"/g, '%22');
 
     const marker = new AMap.Marker({
       position: [Number(loc.longitude), Number(loc.latitude)],
+      icon: new AMap.Icon({
+        size: new AMap.Size(32, 40),
+        imageSize: new AMap.Size(32, 40),
+        imageUrl: `data:image/svg+xml,${encodedSvg}`
+      }),
+      offset: new AMap.Pixel(-16, -40),
       title: loc.name,
       map
     });
 
     const infoWindow = new AMap.InfoWindow({
       content: `
-        <div style="padding: 10px 12px; min-width: 220px;">
-          <strong style="font-size:14px;color:#1f2937;">${escapeHtml(loc.name)}</strong><br/>
-          <span style="color:#4b5563;font-size:12px;line-height:1.5;display:block;margin:6px 0;">${escapeHtml(loc.address)}</span>
+        <div style="padding:10px 12px;min-width:220px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <strong style="font-size:14px;color:#1f2937;">${escapeHtml(loc.name)}</strong>
+            ${loc.category ? `<span style="font-size:12px;">${getCategoryLabel(loc.category)}</span>` : ''}
+          </div>
+          <span style="color:#4b5563;font-size:12px;line-height:1.5;display:block;">${escapeHtml(loc.address)}</span>
           ${loc.reason ? `<div style="background:#f3f4f6;padding:8px;border-radius:6px;margin-top:8px;"><span style="color:#6b7280;font-size:11px;">添加理由</span><p style="color:#374151;font-size:12px;margin:4px 0 0;">${escapeHtml(loc.reason)}</p></div>` : ''}
+          ${!hasCoordinates(loc) ? `<div style="margin-top:8px;padding:8px;background:#fef3c7;border-radius:6px;"><span style="color:#92400e;font-size:12px;">待定位</span></div>` : ''}
         </div>
       `,
-      offset: new AMap.Pixel(0, -30)
+      offset: new AMap.Pixel(0, -40)
     });
 
     marker.on('click', () => {
@@ -234,7 +320,6 @@ function locateMe() {
       const longitude = position.coords.longitude;
       const accuracy = position.coords.accuracy;
 
-      // 在地图上标记当前位置
       if (myLocationMarker) {
         myLocationMarker.setMap(null);
       }
@@ -250,7 +335,6 @@ function locateMe() {
         map
       });
 
-      // 添加点击事件，显示信息窗口
       const infoWindow = new AMap.InfoWindow({
         content: `<div style="padding:8px 10px;min-width:180px;"><strong style="font-size:14px;">我的位置</strong><p style="color:#6b7280;font-size:12px;margin:8px 0 0;">精度：约${Math.round(accuracy)}米</p></div>`,
         offset: new AMap.Pixel(0, -30)
@@ -260,7 +344,6 @@ function locateMe() {
         infoWindow.open(map, myLocationMarker.getPosition());
       });
 
-      // 地图中心移动到当前位置
       map.setCenter([longitude, latitude]);
       map.setZoom(16);
 
@@ -293,16 +376,111 @@ function locateMe() {
   );
 }
 
+// 导出功能
+function exportData(format = 'json') {
+  if (locations.length === 0) {
+    showToast('暂无可导出的数据', 'error');
+    return;
+  }
+
+  if (format === 'json') {
+    const dataStr = JSON.stringify(locations, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fuzhou-locations-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } else if (format === 'csv') {
+    const headers = ['ID', '名称', '地址', '分类', '理由', '纬度', '经度', '添加时间'];
+    const rows = locations.map(loc => [
+      loc.id,
+      `"${loc.name}"`,
+      `"${loc.address}"`,
+      loc.category || '',
+      loc.reason ? `"${loc.reason}"` : '',
+      loc.latitude || '',
+      loc.longitude || '',
+      loc.createdAt
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fuzhou-locations-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  showToast('导出成功', 'success');
+}
+
+// 编辑功能
+function openEditDialog(id) {
+  const loc = locations.find(l => l.id === id);
+  if (!loc) return;
+
+  ui.editLocationId.value = id;
+  ui.editName.value = loc.name;
+  ui.editAddress.value = loc.address;
+  ui.editCategory.value = loc.category || '';
+  ui.editReason.value = loc.reason || '';
+  ui.editDialog.style.display = 'flex';
+}
+
+function closeEditDialog() {
+  ui.editDialog.style.display = 'none';
+}
+
+async function saveEdit() {
+  const id = ui.editLocationId.value;
+  const updates = {
+    name: ui.editName.value.trim(),
+    address: ui.editAddress.value.trim(),
+    category: ui.editCategory.value || null,
+    reason: ui.editReason.value.trim() || null
+  };
+
+  if (!updates.name || !updates.address) {
+    showToast('名称和地址不能为空', 'error');
+    return;
+  }
+
+  try {
+    const result = await requestJson(`/api/locations?id=${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+
+    const index = locations.findIndex(l => l.id === id);
+    if (index !== -1) {
+      locations[index] = { ...locations[index], ...result };
+    }
+
+    renderLocationsList();
+    renderMarkers();
+    closeEditDialog();
+    showToast('地点已更新', 'success');
+  } catch (err) {
+    showToast(`更新失败：${err.message}`, 'error');
+  }
+}
+
 async function addSingleLocation() {
   const address = ui.singleInput.value.trim();
   const reason = ui.reasonInput.value.trim();
+  const category = ui.categorySelect.value || null;
+
   if (!address) {
     showToast('请输入地址后再提交', 'error');
     ui.singleInput.focus();
     return;
   }
 
-  // 如果用户选择了搜索建议，直接使用选中的数据
   if (selectedSuggestion) {
     setButtonBusy(ui.addSingleBtn, true, '添加中...');
     try {
@@ -310,6 +488,7 @@ async function addSingleLocation() {
         name: selectedSuggestion.name,
         address: selectedSuggestion.address || address,
         reason: reason,
+        category: category,
         latitude: selectedSuggestion.latitude,
         longitude: selectedSuggestion.longitude
       };
@@ -327,6 +506,7 @@ async function addSingleLocation() {
 
       ui.singleInput.value = '';
       ui.reasonInput.value = '';
+      ui.categorySelect.value = '';
       selectedSuggestion = null;
       hideSuggestions();
       showToast('地点已添加', 'success');
@@ -342,7 +522,6 @@ async function addSingleLocation() {
   setButtonBusy(ui.addSingleBtn, true, '搜索中...');
 
   try {
-    // 先调用搜索 API 进行模糊搜索
     const searchResult = await requestJson('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -354,8 +533,6 @@ async function addSingleLocation() {
     }
 
     const poi = searchResult.pois[0];
-
-    // 高德搜索 API 返回的 location 可能是字符串 "lng,lat" 或对象 {lng,lat}
     let lng, lat;
     if (typeof poi.location === 'string') {
       [lng, lat] = poi.location.split(',').map(Number);
@@ -364,7 +541,6 @@ async function addSingleLocation() {
       lat = Number(poi.location.lat);
     }
 
-    // 验证坐标是否有效（排除 0,0 或超出范围的值）
     if (!lng || !lat || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
       throw new Error('无效的地理坐标');
     }
@@ -373,11 +549,11 @@ async function addSingleLocation() {
       name: name,
       address: address,
       reason: reason,
+      category: category,
       latitude: lat,
       longitude: lng
     };
 
-    // 保存到后端
     const savedLocation = await requestJson('/api/locations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -387,12 +563,11 @@ async function addSingleLocation() {
     locations.push(savedLocation);
     renderLocationsList();
     renderMarkers();
-
-    // 聚焦到新标记
     focusLocation(savedLocation.id);
 
     ui.singleInput.value = '';
     ui.reasonInput.value = '';
+    ui.categorySelect.value = '';
     showToast('地点已添加', 'success');
   } catch (err) {
     showToast(`添加失败：${err.message}`, 'error');
@@ -483,7 +658,7 @@ async function geocodeLocation(location, options = {}) {
     }
   } catch (err) {
     console.warn('地理编码失败:', err);
-    showToast(`“${location.address}”定位失败：${err.message}`, 'error');
+    showToast(`"${location.address}"定位失败：${err.message}`, 'error');
   }
 }
 
@@ -491,7 +666,7 @@ async function deleteLocation(id) {
   if (!window.confirm('确定删除该地点吗？')) return;
 
   try {
-    await requestJson(`/api/locations/${id}`, { method: 'DELETE' });
+    await requestJson(`/api/locations?id=${id}`, { method: 'DELETE' });
     locations = locations.filter((item) => item.id !== id);
 
     if (activeLocationId === id) {
@@ -506,7 +681,36 @@ async function deleteLocation(id) {
   }
 }
 
-// 搜索建议相关函数
+async function bulkDelete() {
+  if (selectedLocations.size === 0) return;
+
+  if (!window.confirm(`确定删除选中的 ${selectedLocations.size} 个地点吗？`)) return;
+
+  try {
+    for (const id of selectedLocations) {
+      await requestJson(`/api/locations?id=${id}`, { method: 'DELETE' });
+    }
+
+    locations = locations.filter(loc => !selectedLocations.has(loc.id));
+    selectedLocations.clear();
+
+    renderLocationsList();
+    renderMarkers();
+    showToast(`已删除 ${selectedLocations.size} 个地点`, 'success');
+  } catch (err) {
+    showToast(`批量删除失败：${err.message}`, 'error');
+  }
+}
+
+function toggleSelection(id) {
+  if (selectedLocations.has(id)) {
+    selectedLocations.delete(id);
+  } else {
+    selectedLocations.add(id);
+  }
+  renderLocationsList();
+}
+
 function hideSuggestions() {
   ui.searchSuggestions.classList.remove('show');
   ui.searchSuggestions.innerHTML = '';
@@ -538,7 +742,6 @@ function showSuggestions(pois) {
   ui.searchSuggestions.innerHTML = html;
   ui.searchSuggestions.classList.add('show');
 
-  // 绑定点击事件
   ui.searchSuggestions.querySelectorAll('.suggestion-item').forEach((item, index) => {
     item.addEventListener('click', () => {
       const poi = pois[index];
@@ -577,7 +780,7 @@ async function fetchSuggestions(keywords) {
     });
 
     if (result.pois && result.pois.length > 0) {
-      showSuggestions(result.pois.slice(0, 8)); // 最多显示 8 条
+      showSuggestions(result.pois.slice(0, 8));
     } else {
       hideSuggestions();
     }
@@ -622,6 +825,16 @@ function handleListAction(event) {
     return;
   }
 
+  if (action === 'edit') {
+    openEditDialog(id);
+    return;
+  }
+
+  if (action === 'select') {
+    toggleSelection(id);
+    return;
+  }
+
   if (action === 'focus') {
     focusLocation(id);
   }
@@ -640,11 +853,36 @@ function handleListKeyboard(event) {
   }
 }
 
+function handleExportDialog() {
+  const format = window.confirm('选择导出格式：\n点击"确定"导出 JSON 格式\n点击"取消"导出 CSV 格式') ? 'json' : 'csv';
+  exportData(format);
+}
+
 function bindEvents() {
   ui.addSingleBtn.addEventListener('click', addSingleLocation);
   ui.addBatchBtn.addEventListener('click', addBatchLocations);
   ui.fitMarkersBtn.addEventListener('click', fitAllMarkers);
   ui.locateMeBtn.addEventListener('click', locateMe);
+  ui.exportBtn.addEventListener('click', handleExportDialog);
+  ui.bulkDeleteBtn.addEventListener('click', bulkDelete);
+
+  ui.saveEditBtn.addEventListener('click', saveEdit);
+  ui.cancelEditBtn.addEventListener('click', closeEditDialog);
+  ui.dialogClose.addEventListener('click', closeEditDialog);
+  ui.editDialog.addEventListener('click', (e) => {
+    if (e.target === ui.editDialog) closeEditDialog();
+  });
+
+  ui.filterCategory.addEventListener('change', (e) => {
+    filterCategory = e.target.value;
+    renderLocationsList();
+    renderMarkers();
+  });
+
+  ui.searchInput.addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim();
+    renderLocationsList();
+  });
 
   ui.singleInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
@@ -653,7 +891,6 @@ function bindEvents() {
     }
   });
 
-  // 搜索建议 - 防抖输入
   ui.singleInput.addEventListener('input', (event) => {
     const value = event.target.value.trim();
     if (searchDebounceTimer) {
@@ -664,7 +901,6 @@ function bindEvents() {
     }, 300);
   });
 
-  // 点击输入框外隐藏建议
   document.addEventListener('click', (event) => {
     if (!event.target.closest('.search-box')) {
       hideSuggestions();

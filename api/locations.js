@@ -5,7 +5,6 @@ const LOCATIONS_KEY = 'locations';
 async function getLocations() {
   try {
     const data = await kv.get(LOCATIONS_KEY);
-    // kv.get 已经返回解析后的数据，不需要再 JSON.parse
     return data || [];
   } catch (err) {
     console.error('getLocations error:', err.message);
@@ -30,7 +29,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { name, address, latitude, longitude, reason } = req.body;
+      const { name, address, latitude, longitude, reason, category } = req.body;
 
       if (!name || !address) {
         return res.status(400).json({ error: '名称和地址不能为空' });
@@ -42,6 +41,7 @@ module.exports = async function handler(req, res) {
         name,
         address,
         reason: reason || null,
+        category: category || null,
         latitude: latitude || null,
         longitude: longitude || null,
         createdAt: new Date().toISOString()
@@ -51,6 +51,35 @@ module.exports = async function handler(req, res) {
       await saveLocations(locations);
 
       return res.status(200).json(newLocation);
+    }
+
+    if (req.method === 'PUT') {
+      const { id } = req.query;
+      const updates = req.body;
+
+      const locations = await getLocations();
+      const index = locations.findIndex(loc => loc.id === id);
+
+      if (index === -1) {
+        return res.status(404).json({ error: '未找到该地点' });
+      }
+
+      // 更新允许的字段
+      const allowedFields = ['name', 'address', 'reason', 'category', 'latitude', 'longitude'];
+      allowedFields.forEach(field => {
+        if (updates[field] !== undefined) {
+          locations[index][field] = updates[field];
+        }
+      });
+
+      // 如果更新了地址但没有坐标，清除旧坐标
+      if (updates.address && updates.address !== locations[index].address && !updates.latitude) {
+        locations[index].latitude = null;
+        locations[index].longitude = null;
+      }
+
+      await saveLocations(locations);
+      return res.status(200).json(locations[index]);
     }
 
     if (req.method === 'DELETE') {

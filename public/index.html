@@ -30,9 +30,14 @@
           <strong id="geocodedCount">0</strong>
         </div>
       </div>
-      <button type="button" id="locateMeBtn" class="btn btn-primary locate-me-btn" title="获取我的当前位置">
-        定位我
-      </button>
+      <div class="header-actions">
+        <button type="button" id="locateMeBtn" class="btn btn-primary locate-me-btn" title="获取我的当前位置">
+          定位我
+        </button>
+        <button type="button" id="exportBtn" class="btn btn-ghost" title="导出所有地点数据">
+          导出数据
+        </button>
+      </div>
     </header>
 
     <div class="workspace">
@@ -44,6 +49,17 @@
             <input type="text" id="singleInput" placeholder="例如：群哥水煮蛙 仓山万达店" autocomplete="off">
             <div id="searchSuggestions" class="search-suggestions"></div>
           </div>
+          <label for="categorySelect">分类</label>
+          <select id="categorySelect" class="category-select">
+            <option value="">选择分类（可选）</option>
+            <option value="food">🍽️ 餐饮美食</option>
+            <option value="spot">🏞️ 景点休闲</option>
+            <option value="shopping">🛍️ 购物消费</option>
+            <option value="traffic">🚇 交通枢纽</option>
+            <option value="medical">🏥 医疗服务</option>
+            <option value="education">📚 教育培训</option>
+            <option value="other">📍 其他</option>
+          </select>
           <label for="reasonInput">添加理由（可选）</label>
           <input type="text" id="reasonInput" placeholder="例如：朋友推荐、想吃蛙">
           <button type="button" id="addSingleBtn" class="btn btn-primary">添加并定位</button>
@@ -60,7 +76,23 @@
         <section class="card locations-section">
           <div class="section-head">
             <h2>地点列表</h2>
-            <button type="button" id="fitMarkersBtn" class="btn btn-ghost">定位全部</button>
+            <div class="section-actions">
+              <select id="filterCategory" class="filter-select">
+                <option value="">全部分类</option>
+                <option value="food">🍽️ 餐饮美食</option>
+                <option value="spot">🏞️ 景点休闲</option>
+                <option value="shopping">🛍️ 购物消费</option>
+                <option value="traffic">🚇 交通枢纽</option>
+                <option value="medical">🏥 医疗服务</option>
+                <option value="education">📚 教育培训</option>
+                <option value="other">📍 其他</option>
+              </select>
+              <input type="text" id="searchInput" class="search-locations-input" placeholder="搜索地点..." />
+              <button type="button" id="fitMarkersBtn" class="btn btn-ghost">定位全部</button>
+              <button type="button" id="bulkDeleteBtn" class="btn btn-ghost bulk-delete-btn" style="display: none;">
+                删除选中 (<span id="selectedCount">0</span>)
+              </button>
+            </div>
           </div>
           <div id="locationsList" class="locations-list" aria-live="polite"></div>
         </section>
@@ -72,6 +104,40 @@
         </div>
         <div id="map"></div>
       </main>
+    </div>
+
+    <!-- 编辑对话框 -->
+    <div id="editDialog" class="dialog-overlay" style="display: none;">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>编辑地点</h3>
+          <button type="button" class="dialog-close" aria-label="关闭">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <input type="hidden" id="editLocationId">
+          <label for="editName">名称</label>
+          <input type="text" id="editName">
+          <label for="editAddress">地址</label>
+          <input type="text" id="editAddress">
+          <label for="editCategory">分类</label>
+          <select id="editCategory" class="category-select">
+            <option value="">无分类</option>
+            <option value="food">🍽️ 餐饮美食</option>
+            <option value="spot">🏞️ 景点休闲</option>
+            <option value="shopping">🛍️ 购物消费</option>
+            <option value="traffic">🚇 交通枢纽</option>
+            <option value="medical">🏥 医疗服务</option>
+            <option value="education">📚 教育培训</option>
+            <option value="other">📍 其他</option>
+          </select>
+          <label for="editReason">理由</label>
+          <input type="text" id="editReason">
+        </div>
+        <div class="dialog-footer">
+          <button type="button" id="cancelEditBtn" class="btn btn-ghost">取消</button>
+          <button type="button" id="saveEditBtn" class="btn btn-primary">保存修改</button>
+        </div>
+      </div>
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
