@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+const { kv } = require('@vercel/kv');
 
 const LOCATIONS_KEY = 'locations';
 
@@ -11,7 +11,7 @@ async function saveLocations(locations) {
   await kv.set(LOCATIONS_KEY, JSON.stringify(locations));
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method === 'PUT') {
     const { id } = req.query;
     const { latitude, longitude } = req.body;
@@ -31,4 +31,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: '方法不允许' });
-}
+};

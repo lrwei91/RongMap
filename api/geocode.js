@@ -1,10 +1,10 @@
-import https from 'https';
+const https = require('https');
 
 const AMAP_CONFIG = {
   webServiceKey: '8df650b9d87529c0d756660265fa82a2'
 };
 
-export default function handler(req, res) {
+module.exports = function handler(req, res) {
   if (req.method === 'POST') {
     const { address } = req.body;
 
@@ -32,4 +32,4 @@ export default function handler(req, res) {
   }
 
   return res.status(405).json({ error: '方法不允许' });
-}
+};
