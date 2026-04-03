@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>福州地图标记</title>
+  <meta name="color-scheme" content="light">
+  <title>福州地点地图工具</title>
   <link rel="stylesheet" href="style.css">
   <script type="text/javascript">
     window._AMapSecurityConfig = {
@@ -15,18 +16,18 @@
 <body>
   <div class="app-shell">
     <header class="panel-header">
-      <div>
-        <p class="eyebrow">FUZHOU LOCATION BOARD</p>
-        <h1>福州地点管理台</h1>
-        <p class="subtitle">录入地点、自动地理编码、在地图中快速定位。</p>
+      <div class="header-copy">
+        <p class="eyebrow">FUZHOU MAP TOOL</p>
+        <h1>福州地点地图</h1>
+        <p class="subtitle">先搜索，再保存，最后在地图里快速回看和定位。</p>
       </div>
       <div class="stats" aria-label="地点统计信息">
         <div class="stat-card">
-          <span class="stat-label">总地点</span>
+          <span class="stat-label">地点总数</span>
           <strong id="locationCount">0</strong>
         </div>
         <div class="stat-card">
-          <span class="stat-label">已定位</span>
+          <span class="stat-label">已带坐标</span>
           <strong id="geocodedCount">0</strong>
         </div>
       </div>
@@ -42,68 +43,131 @@
 
     <div class="workspace">
       <aside class="control-panel" aria-label="地点输入与管理面板">
-        <section class="card input-section">
-          <h2>添加地点</h2>
-          <label for="singleInput">单条地址</label>
-          <div class="search-box">
-            <input type="text" id="singleInput" placeholder="例如：群哥水煮蛙 仓山万达店" autocomplete="off">
-            <div id="searchSuggestions" class="search-suggestions"></div>
-          </div>
-          <label for="categorySelect">分类</label>
-          <select id="categorySelect" class="category-select">
-            <option value="">选择分类（可选）</option>
-            <option value="food">🍽️ 餐饮美食</option>
-            <option value="spot">🏞️ 景点休闲</option>
-            <option value="shopping">🛍️ 购物消费</option>
-            <option value="traffic">🚇 交通枢纽</option>
-            <option value="medical">🏥 医疗服务</option>
-            <option value="education">📚 教育培训</option>
-            <option value="other">📍 其他</option>
-          </select>
-          <label for="reasonInput">添加理由（可选）</label>
-          <input type="text" id="reasonInput" placeholder="例如：朋友推荐、想吃蛙">
-          <button type="button" id="addSingleBtn" class="btn btn-primary">添加并定位</button>
-
-          <div class="divider" role="separator" aria-label="分隔线">
-            <span>或批量导入</span>
-          </div>
-
-          <label for="batchInput">批量地址（每行一个）</label>
-          <textarea id="batchInput" rows="6" placeholder="群哥水煮蛙 仓山万达店&#10;福州西湖公园&#10;三坊七巷"></textarea>
-          <button type="button" id="addBatchBtn" class="btn btn-secondary">批量添加并定位</button>
-        </section>
-
-        <section class="card locations-section">
-          <div class="section-head">
-            <h2>地点列表</h2>
-            <div class="section-actions">
-              <select id="filterCategory" class="filter-select">
-                <option value="">全部分类</option>
-                <option value="food">🍽️ 餐饮美食</option>
-                <option value="spot">🏞️ 景点休闲</option>
-                <option value="shopping">🛍️ 购物消费</option>
-                <option value="traffic">🚇 交通枢纽</option>
-                <option value="medical">🏥 医疗服务</option>
-                <option value="education">📚 教育培训</option>
-                <option value="other">📍 其他</option>
-              </select>
-              <input type="text" id="searchInput" class="search-locations-input" placeholder="搜索地点..." />
-              <button type="button" id="fitMarkersBtn" class="btn btn-ghost">定位全部</button>
-              <button type="button" id="bulkDeleteBtn" class="btn btn-ghost bulk-delete-btn" style="display: none;">
-                删除选中 (<span id="selectedCount">0</span>)
-              </button>
+        <div id="mobileAddSheet" class="mobile-sheet-shell" aria-hidden="false">
+          <div class="mobile-sheet-backdrop" data-mobile-sheet-close="add"></div>
+          <section class="card input-section mobile-sheet-card">
+            <div class="mobile-sheet-bar mobile-only">
+              <div class="mobile-sheet-grabber" aria-hidden="true"></div>
+              <button type="button" id="mobileAddCloseBtn" class="sheet-close" aria-label="关闭添加地址面板">&times;</button>
             </div>
-          </div>
-          <div id="locationsList" class="locations-list" aria-live="polite"></div>
-        </section>
+            <div class="section-intro">
+              <p class="section-kicker">搜索并加入</p>
+              <h2>把想去的地方收进地图</h2>
+            </div>
+            <label for="singleInput">单条地址</label>
+            <div class="search-box">
+              <input type="text" id="singleInput" placeholder="例如：群哥水煮蛙 仓山万达店" autocomplete="off">
+              <div id="searchSuggestions" class="search-suggestions"></div>
+            </div>
+            <label for="categorySelect">分类</label>
+            <select id="categorySelect" class="category-select">
+              <option value="">选择分类（可选）</option>
+              <option value="food">餐饮美食</option>
+              <option value="spot">景点休闲</option>
+              <option value="shopping">购物消费</option>
+              <option value="traffic">交通枢纽</option>
+              <option value="medical">医疗服务</option>
+              <option value="education">教育培训</option>
+              <option value="other">其他</option>
+            </select>
+            <label for="reasonInput">添加理由（可选）</label>
+            <input type="text" id="reasonInput" placeholder="例如：朋友推荐、想吃蛙">
+            <button type="button" id="addSingleBtn" class="btn btn-primary">添加并定位</button>
+          </section>
+        </div>
+
+        <div id="mobileListSheet" class="mobile-sheet-shell" aria-hidden="false">
+          <div class="mobile-sheet-backdrop" data-mobile-sheet-close="list"></div>
+          <section class="card locations-section mobile-sheet-card">
+            <div class="mobile-sheet-bar mobile-only">
+              <div class="mobile-sheet-grabber" aria-hidden="true"></div>
+              <button type="button" id="mobileListCloseBtn" class="sheet-close" aria-label="关闭地点列表面板">&times;</button>
+            </div>
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">地点列表</p>
+                <h2>已保存地点</h2>
+                <p id="listSummary" class="section-meta">0 个地点，0 个已带坐标</p>
+              </div>
+              <div class="mobile-list-toolbar mobile-only">
+                <button type="button" id="mobileExportBtn" class="btn btn-ghost" title="导出所有地点数据">
+                  导出数据
+                </button>
+              </div>
+            </div>
+            <div id="locationsList" class="locations-list" aria-live="polite"></div>
+          </section>
+        </div>
       </aside>
 
       <main class="map-panel" aria-label="地图展示区">
         <div class="map-head">
-          <p>点击列表中的地点可在地图中聚焦，点击标记可查看详细地址。</p>
+          <p class="map-note">点击地点卡片查看详情，地图与列表会保持高亮同步。</p>
+          <div class="map-meta">
+            <span id="viewportCount" class="map-chip">视野内 0</span>
+            <p id="viewportHint" class="map-hint">移动地图后会显示当前视野内的地点。</p>
+          </div>
         </div>
         <div id="map"></div>
+        <div id="mobileMapOverlay" class="mobile-map-overlay mobile-only" aria-live="polite">
+          <div class="mobile-chip-row">
+            <span id="mobileLocationSummary" class="map-chip">0 个地点 · 0 个已带坐标</span>
+            <span id="mobileViewportCount" class="map-chip">视野内 0</span>
+          </div>
+          <p id="mobileViewportHint" class="mobile-overlay-hint">移动地图后会显示当前视野内的地点。</p>
+        </div>
       </main>
+    </div>
+
+    <div id="mobileActionDock" class="mobile-action-dock mobile-only" aria-label="移动端快捷操作">
+      <button type="button" id="mobileLocateBtn" class="mobile-dock-btn" title="获取我的当前位置">定位我</button>
+      <button type="button" id="mobileAddToggleBtn" class="mobile-dock-primary" aria-label="添加地址" aria-expanded="false">+</button>
+      <button type="button" id="mobileListToggleBtn" class="mobile-dock-btn" aria-label="打开地点列表" aria-expanded="false">地点列表</button>
+    </div>
+
+    <div id="detailDrawer" class="drawer-shell" aria-hidden="true">
+      <div class="drawer-backdrop" data-drawer-close="true"></div>
+      <aside class="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <div class="drawer-handle" aria-hidden="true"></div>
+        <div class="drawer-header">
+          <div class="drawer-heading">
+            <p class="section-kicker">地点详情</p>
+            <h3 id="detailTitle">地点</h3>
+          </div>
+          <button type="button" id="detailCloseBtn" class="dialog-close" aria-label="关闭详情">&times;</button>
+        </div>
+        <div class="drawer-badges">
+          <span id="detailCategory" class="category-badge detail-category" hidden></span>
+          <span id="detailStatus" class="status status-pending">待定位</span>
+          <span id="detailViewportTag" class="detail-chip" hidden>当前视野</span>
+        </div>
+        <div class="drawer-body">
+          <section class="detail-section">
+            <span class="detail-label">地址</span>
+            <p id="detailAddress" class="detail-text">未填写地址</p>
+          </section>
+          <section class="detail-section">
+            <span class="detail-label">备注</span>
+            <p id="detailReason" class="detail-note detail-note-empty">还没有添加备注</p>
+          </section>
+          <div class="detail-grid">
+            <section class="detail-section detail-cell">
+              <span class="detail-label">坐标</span>
+              <p id="detailCoords" class="detail-text">未定位</p>
+            </section>
+            <section class="detail-section detail-cell">
+              <span class="detail-label">保存时间</span>
+              <p id="detailCreatedAt" class="detail-text">未知</p>
+            </section>
+          </div>
+        </div>
+        <div class="drawer-actions">
+          <button type="button" id="detailFocusBtn" class="btn btn-primary">地图聚焦</button>
+          <button type="button" id="detailNavigateBtn" class="btn btn-ghost">导航前往</button>
+          <button type="button" id="detailEditBtn" class="btn btn-ghost">编辑地点</button>
+          <button type="button" id="detailDeleteBtn" class="btn btn-ghost btn-danger-ghost">删除地点</button>
+        </div>
+      </aside>
     </div>
 
     <!-- 编辑对话框 -->
@@ -111,7 +175,7 @@
       <div class="dialog">
         <div class="dialog-header">
           <h3>编辑地点</h3>
-          <button type="button" class="dialog-close" aria-label="关闭">&times;</button>
+          <button type="button" id="editDialogCloseBtn" class="dialog-close" aria-label="关闭">&times;</button>
         </div>
         <div class="dialog-body">
           <input type="hidden" id="editLocationId">
@@ -122,13 +186,13 @@
           <label for="editCategory">分类</label>
           <select id="editCategory" class="category-select">
             <option value="">无分类</option>
-            <option value="food">🍽️ 餐饮美食</option>
-            <option value="spot">🏞️ 景点休闲</option>
-            <option value="shopping">🛍️ 购物消费</option>
-            <option value="traffic">🚇 交通枢纽</option>
-            <option value="medical">🏥 医疗服务</option>
-            <option value="education">📚 教育培训</option>
-            <option value="other">📍 其他</option>
+            <option value="food">餐饮美食</option>
+            <option value="spot">景点休闲</option>
+            <option value="shopping">购物消费</option>
+            <option value="traffic">交通枢纽</option>
+            <option value="medical">医疗服务</option>
+            <option value="education">教育培训</option>
+            <option value="other">其他</option>
           </select>
           <label for="editReason">理由</label>
           <input type="text" id="editReason">
