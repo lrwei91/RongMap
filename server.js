@@ -1,5 +1,9 @@
-const express = require('express');
+// 加载环境变量（本地开发用）
+const dotenv = require('dotenv');
 const path = require('path');
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+const express = require('express');
 const fs = require('fs');
 const { DEFAULT_CITY, geocodeAddress, normalizePreferredCity, searchPlaces } = require('./lib/amap');
 
@@ -11,6 +15,10 @@ const DATA_FILE = path.join(__dirname, 'data', 'locations.json');
 // 中间件
 app.use(express.json());
 app.use(express.static('public'));
+
+// OpenClaw API 路由
+app.use('/api/openclaw/locations/intake', require('./api/openclaw/locations/intake'));
+app.use('/api/openclaw/locations/confirm', require('./api/openclaw/locations/confirm'));
 
 // 读取数据
 function readData() {
