@@ -1,7 +1,13 @@
-const { DEFAULT_CITY, normalizePreferredCity, reverseGeocode, searchPlaces } = require('./amap');
-const { CATEGORY_DEFINITIONS, normalizeLocationCategory } = require('./location-category');
-const { hasFiniteCoordinates, isFiniteCoordinateValue } = require('./location-coordinates');
-const { normalizeText } = require('./location-record');
+import { DEFAULT_CITY, normalizePreferredCity, reverseGeocode, searchPlaces } from './amap.js';
+import {
+  CATEGORY_DEFINITIONS,
+  hasFiniteCoordinates,
+  isDuplicateLocation,
+  isFiniteCoordinateValue,
+  normalizeLocationCategory,
+  normalizeText
+} from './domain.js';
+import { createLocation, getLocations } from './storage.js';
 
 const CATEGORY_TYPE_RULES = {
   food: ['餐饮', '咖啡', '茶艺', '甜品', '小吃', '中餐', '西餐', '快餐', '蛋糕', '饮品'],
@@ -34,7 +40,7 @@ function normalizeOptionalText(value) {
 function truncateText(value, maxLength = 320) {
   const text = normalizeOptionalText(value);
   if (!text) return '';
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
 }
 
 function isLikelyUrl(value) {
@@ -139,7 +145,7 @@ function scoreSegment(segment) {
   return score;
 }
 
-function extractQueriesFromText(text) {
+export function extractQueriesFromText(text) {
   const cleaned = cleanSegment(text);
   if (!cleaned) return [];
 
@@ -182,7 +188,7 @@ function getCategoryFromRules(text, rules) {
   return null;
 }
 
-function inferCategory({ explicitCategory, poiType, name, address, sourceContent }) {
+export function inferCategory({ explicitCategory, poiType, name, address, sourceContent }) {
   const normalizedExplicitCategory = normalizeLocationCategory(explicitCategory, { fallback: null });
   if (normalizedExplicitCategory) {
     return normalizedExplicitCategory;
@@ -490,13 +496,13 @@ async function collectIntakeContext(payload) {
   };
 }
 
-async function collectCandidatesFromCoordinates(context) {
+async function collectCandidatesFromCoordinates(context, env) {
   if (!context.referenceCoordinates) {
     return [];
   }
 
   try {
-    const reverseResult = await reverseGeocode(context.referenceCoordinates);
+    const reverseResult = await reverseGeocode(context.referenceCoordinates, env);
     const pois = Array.isArray(reverseResult && reverseResult.regeocode && reverseResult.regeocode.pois)
       ? reverseResult.regeocode.pois
       : [];
@@ -522,7 +528,7 @@ async function collectCandidatesFromCoordinates(context) {
   }
 }
 
-async function collectCandidatesFromQueries(context) {
+async function collectCandidatesFromQueries(context, env) {
   const candidates = [];
 
   for (const query of context.queries.slice(0, MAX_QUERY_COUNT)) {
@@ -532,7 +538,7 @@ async function collectCandidatesFromQueries(context) {
       citylimit: false,
       offset: MAX_POIS_PER_QUERY,
       page: 1
-    });
+    }, env);
 
     const pois = Array.isArray(searchResult && searchResult.pois) ? searchResult.pois : [];
     pois.slice(0, MAX_POIS_PER_QUERY).forEach((poi) => {
@@ -580,7 +586,7 @@ function rankCandidates(candidates) {
   });
 }
 
-function applyLocationRules(candidate, context) {
+export function applyLocationRules(candidate, context) {
   const hasCoordinates = hasFiniteCoordinates(candidate);
 
   if (candidate.duplicateInfo && candidate.duplicateInfo.isDuplicate) {
@@ -638,7 +644,7 @@ function applyLocationRules(candidate, context) {
   };
 }
 
-async function processLocationIntake(payload, storage) {
+export async function processLocationIntake(payload, env) {
   const context = await collectIntakeContext(payload);
 
   if (!context.query && context.queries.length === 0 && !context.referenceCoordinates) {
@@ -650,9 +656,9 @@ async function processLocationIntake(payload, storage) {
   }
 
   const [coordinateCandidates, queryCandidates, existingLocations] = await Promise.all([
-    collectCandidatesFromCoordinates(context),
-    collectCandidatesFromQueries(context),
-    storage.getLocations()
+    collectCandidatesFromCoordinates(context, env),
+    collectCandidatesFromQueries(context, env),
+    getLocations(env)
   ]);
 
   const rankedCandidates = rankCandidates(dedupeCandidates([
@@ -660,7 +666,7 @@ async function processLocationIntake(payload, storage) {
     ...queryCandidates
   ]).map((candidate) => ({
     ...candidate,
-    duplicateInfo: storage.isDuplicateLocation(candidate, existingLocations)
+    duplicateInfo: isDuplicateLocation(candidate, existingLocations)
   })));
 
   const nonDuplicateCandidates = rankedCandidates.filter((candidate) => !candidate.duplicateInfo.isDuplicate);
@@ -693,7 +699,7 @@ async function processLocationIntake(payload, storage) {
   });
 
   if (ruleResult.action === 'auto_save') {
-    const result = await storage.createLocation({
+    const result = await createLocation(env, {
       ...primaryCandidate,
       reason: context.reason || null,
       category: primaryCandidate.category,
@@ -746,10 +752,3 @@ async function processLocationIntake(payload, storage) {
     }))
   };
 }
-
-module.exports = {
-  applyLocationRules,
-  extractQueriesFromText,
-  inferCategory,
-  processLocationIntake
-};

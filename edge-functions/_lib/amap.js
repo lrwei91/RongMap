@@ -1,16 +1,22 @@
-const { isFiniteCoordinateValue } = require('./location-coordinates');
-
-const LEGACY_AMAP_SERVER_KEY = '8df650b9d87529c0d756660265fa82a2';
-
 const DEFAULT_CITY = '福州';
 const FUZHOU_CITY_CODE = '0591';
 const FUZHOU_ADCODE_PREFIX = '3501';
 
-function getAmapServerKey() {
-  return process.env.AMAP_SERVER_KEY || LEGACY_AMAP_SERVER_KEY;
+function normalizeText(value) {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
-function normalizePreferredCity(city) {
+function getAmapServerKey(env) {
+  const key = normalizeText(env && env.AMAP_SERVER_KEY);
+
+  if (!key) {
+    throw new Error('未配置 AMAP_SERVER_KEY');
+  }
+
+  return key;
+}
+
+export function normalizePreferredCity(city) {
   if (typeof city !== 'string') {
     return DEFAULT_CITY;
   }
@@ -28,9 +34,9 @@ function normalizePreferredCity(city) {
   return trimmed.replace(/市$/, '');
 }
 
-function buildUrl(path, params) {
+function buildUrl(path, params, env) {
   const query = new URLSearchParams({
-    key: getAmapServerKey(),
+    key: getAmapServerKey(env),
     output: 'json'
   });
 
@@ -45,8 +51,8 @@ function buildUrl(path, params) {
   return `https://restapi.amap.com${path}?${query.toString()}`;
 }
 
-async function requestAmap(path, params) {
-  const response = await fetch(buildUrl(path, params), {
+async function requestAmap(path, params, env) {
+  const response = await fetch(buildUrl(path, params, env), {
     headers: {
       accept: 'application/json'
     }
@@ -56,15 +62,15 @@ async function requestAmap(path, params) {
     throw new Error(`高德请求失败：HTTP ${response.status}`);
   }
 
+  let data;
+
   try {
-    return await response.json();
+    data = await response.json();
   } catch (err) {
     throw new Error('解析高德响应失败');
   }
-}
 
-function normalizeText(value) {
-  return typeof value === 'string' ? value.trim() : '';
+  return data;
 }
 
 function isFuzhouPoi(poi) {
@@ -114,7 +120,7 @@ function sortPois(pois, preferredCity) {
     .map((item) => item.poi);
 }
 
-async function searchPlaces({ keywords, city = DEFAULT_CITY, citylimit = false, offset = 20, page = 1 }) {
+export async function searchPlaces({ keywords, city = DEFAULT_CITY, citylimit = false, offset = 20, page = 1 }, env) {
   const preferredCity = normalizePreferredCity(city);
   const firstResult = await requestAmap('/v3/place/text', {
     keywords,
@@ -123,7 +129,7 @@ async function searchPlaces({ keywords, city = DEFAULT_CITY, citylimit = false, 
     offset,
     page,
     extensions: 'all'
-  });
+  }, env);
 
   if (Array.isArray(firstResult.pois) && firstResult.pois.length > 0) {
     return {
@@ -138,7 +144,7 @@ async function searchPlaces({ keywords, city = DEFAULT_CITY, citylimit = false, 
     offset,
     page,
     extensions: 'all'
-  });
+  }, env);
 
   if (!Array.isArray(fallbackResult.pois)) {
     return fallbackResult;
@@ -150,35 +156,34 @@ async function searchPlaces({ keywords, city = DEFAULT_CITY, citylimit = false, 
   };
 }
 
-async function geocodeAddress(address, city = DEFAULT_CITY) {
+export async function geocodeAddress(address, env, city = DEFAULT_CITY) {
   const firstResult = await requestAmap('/v3/geocode/geo', {
     address,
     city: normalizePreferredCity(city)
-  });
+  }, env);
 
   if (Array.isArray(firstResult.geocodes) && firstResult.geocodes.length > 0) {
     return firstResult;
   }
 
-  return requestAmap('/v3/geocode/geo', { address });
+  return requestAmap('/v3/geocode/geo', { address }, env);
 }
 
-async function reverseGeocode({ latitude, longitude, radius = 200 }) {
-  if (!isFiniteCoordinateValue(latitude) || !isFiniteCoordinateValue(longitude)) {
+export async function reverseGeocode({ latitude, longitude, radius = 200 }, env) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     throw new Error('缺少有效坐标，无法逆地理编码');
   }
 
   return requestAmap('/v3/geocode/regeo', {
-    location: `${Number(longitude)},${Number(latitude)}`,
+    location: `${lng},${lat}`,
     radius,
     extensions: 'all'
-  });
+  }, env);
 }
 
-module.exports = {
-  DEFAULT_CITY,
-  geocodeAddress,
-  normalizePreferredCity,
-  reverseGeocode,
-  searchPlaces
+export {
+  DEFAULT_CITY
 };

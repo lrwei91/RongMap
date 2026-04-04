@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "edge:dev": "npx edgeone pages dev",
+    "edge:deploy": "npx edgeone pages deploy"
   },
   "dependencies": {
     "@vercel/kv": "^3.0.0",
