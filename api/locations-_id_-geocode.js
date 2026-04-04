@@ -1,4 +1,5 @@
 const { kv } = require('@vercel/kv');
+const { applyLocationUpdates } = require('../lib/location-record');
 
 const LOCATIONS_KEY = 'locations';
 
@@ -34,11 +35,11 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ error: '未找到该地点' });
       }
 
-      location.latitude = latitude;
-      location.longitude = longitude;
+      const index = locations.findIndex(loc => loc.id === id);
+      locations[index] = applyLocationUpdates(location, { latitude, longitude });
       await saveLocations(locations);
 
-      return res.status(200).json(location);
+      return res.status(200).json(locations[index]);
     }
 
     return res.status(405).json({ error: '方法不允许' });

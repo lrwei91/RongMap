@@ -95,13 +95,13 @@ async function runTests() {
     console.log(`  ❌ 错误：${err.message}\n`);
   }
 
-  // 测试 2: 缺少 query 参数
-  console.log('测试 2: 缺少 query 参数');
+  // 测试 2: 缺少可识别地点信息
+  console.log('测试 2: 缺少可识别地点信息');
   try {
     const res = await makeRequest('POST', '/api/openclaw/locations/intake', {});
-    console.log(`  状态码：${res.status} (期望：400)`);
+    console.log(`  状态码：${res.status} (期望：200)`);
     console.log(`  响应：${JSON.stringify(res.body)}`);
-    console.log(`  ✅ ${res.status === 400 ? '通过' : '失败'}\n`);
+    console.log(`  ✅ ${(res.status === 200 && res.body.status === 'not_found') ? '通过' : '失败'}\n`);
   } catch (err) {
     console.log(`  ❌ 错误：${err.message}\n`);
   }
@@ -115,8 +115,14 @@ async function runTests() {
     });
     console.log(`  状态码：${res.status} (期望：200)`);
     console.log(`  响应状态：${res.body.status}`);
+    if (res.body.ruleDecision) {
+      console.log(`  规则决策：${res.body.ruleDecision}`);
+    }
     console.log(`  响应：${JSON.stringify(res.body, null, 2)}`);
-    if (res.body.status === 'saved' || res.body.status === 'needs_confirmation' || res.body.status === 'duplicate') {
+    if (
+      (res.body.status === 'saved' || res.body.status === 'needs_confirmation' || res.body.status === 'duplicate') &&
+      !(res.body.status === 'needs_confirmation' && res.body.message === '地点已存在')
+    ) {
       console.log(`  ✅ 通过\n`);
     } else {
       console.log(`  ⚠️ 未找到地点\n`);
@@ -134,10 +140,13 @@ async function runTests() {
     });
     console.log(`  状态码：${res.status} (期望：200)`);
     console.log(`  响应状态：${res.body.status}`);
+    if (res.body.ruleDecision) {
+      console.log(`  规则决策：${res.body.ruleDecision}`);
+    }
     if (res.body.candidates) {
       console.log(`  候选数量：${res.body.candidates.length}`);
       res.body.candidates.forEach((c, i) => {
-        console.log(`    ${i + 1}. ${c.name} - ${c.address}`);
+        console.log(`    ${i + 1}. ${c.name} - ${c.address} [${c.category || '无分类'}]`);
       });
     }
     console.log(`  ✅ 通过\n`);
@@ -169,6 +178,9 @@ async function runTests() {
       console.log(`  状态码：${confirmRes.status} (期望：200)`);
       console.log(`  响应状态：${confirmRes.body.status}`);
       console.log(`  响应：${JSON.stringify(confirmRes.body, null, 2)}`);
+      if (confirmRes.body.location) {
+        console.log(`  归一化分类：${confirmRes.body.location.category}`);
+      }
       console.log(`  ✅ 通过\n`);
     } else if (searchRes.body.status === 'saved') {
       console.log(`  地点已自动保存，跳过确认测试\n`);

@@ -1,4 +1,5 @@
 const { kv } = require('@vercel/kv');
+const { buildLocationRecord } = require('../lib/location-record');
 
 const LOCATIONS_KEY = 'locations';
 
@@ -31,14 +32,13 @@ module.exports = async function handler(req, res) {
       }
 
       const locations = await getLocations();
-      const addedLocations = newLocations.map((loc, index) => ({
-        id: Date.now().toString() + index,
-        name: loc.name || '',
-        address: loc.address || '',
-        reason: loc.reason || null,
-        latitude: loc.latitude || null,
-        longitude: loc.longitude || null,
-        createdAt: new Date().toISOString()
+      const addedLocations = newLocations.map((loc, index) => buildLocationRecord({
+        ...loc,
+        sourceType: loc.sourceType || 'manual',
+        sourcePlatform: loc.sourcePlatform || 'web',
+        createdBy: loc.createdBy || 'user'
+      }, {
+        id: `${Date.now()}${index}`
       }));
 
       locations.push(...addedLocations);

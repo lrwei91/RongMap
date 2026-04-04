@@ -57,7 +57,22 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'candidate 必填', code: 'MISSING_CANDIDATE' });
     }
 
-    const { name, address, latitude, longitude } = candidate;
+    const {
+      name,
+      address,
+      latitude,
+      longitude,
+      sourceType,
+      sourcePlatform,
+      sourceContent,
+      confidence,
+      matchType,
+      poiType,
+      city,
+      district,
+      createdBy,
+      ruleDecision
+    } = candidate;
 
     if (!name || !address) {
       return res.status(400).json({ error: '地点名称和地址不能为空', code: 'INVALID_CANDIDATE' });
@@ -71,8 +86,18 @@ module.exports = async function handler(req, res) {
       address,
       latitude: latitude || null,
       longitude: longitude || null,
-      category: category || null,
-      reason: reason || null
+      category: category || candidate.category || null,
+      reason: reason || null,
+      sourceType: sourceType || null,
+      sourcePlatform: sourcePlatform || null,
+      sourceContent: sourceContent || null,
+      confidence: confidence || null,
+      matchType: matchType || null,
+      poiType: poiType || null,
+      city: city || null,
+      district: district || null,
+      createdBy: createdBy || 'openclaw',
+      ruleDecision: ruleDecision || 'manual_confirmation'
     });
 
     if (result.success) {

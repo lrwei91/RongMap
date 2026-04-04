@@ -25,6 +25,24 @@ const CATEGORIES = {
   other: { label: '其他', color: '#6b7280' }
 };
 
+const CATEGORY_ALIASES = {
+  food: ['餐饮美食', '餐饮', '美食', '咖啡', '小吃', '甜品', '饮品', '餐厅', '饭店'],
+  spot: ['景点休闲', '景点', '休闲', '景区', '公园', '乐园', '娱乐', '旅游'],
+  shopping: ['购物消费', '购物', '商场', '超市', '百货', '便利店', '消费'],
+  traffic: ['交通枢纽', '交通', '地铁', '高铁', '火车站', '汽车站', '机场', '码头'],
+  medical: ['医疗服务', '医疗', '医院', '诊所', '药店', '门诊'],
+  education: ['教育培训', '教育', '学校', '培训', '大学', '学院', '图书馆'],
+  other: ['其他', '其它']
+};
+
+const SOURCE_TYPES = {
+  manual: '手动添加',
+  text: 'AI 文本',
+  map_location: '地图定位',
+  douyin_url: '抖音 URL',
+  video: '视频内容'
+};
+
 let map = null;
 let markers = [];
 let markerMap = new Map();
@@ -39,6 +57,7 @@ let myLocationInfoWindow = null;
 let isAddSheetOpen = false;
 let isListSheetOpen = false;
 let activeCategoryFilter = 'all';
+let activeSearchKeyword = '';
 
 let ui = {};
 
@@ -182,6 +201,7 @@ function initUI() {
     reasonInput: document.getElementById('reasonInput'),
     addSingleBtn: document.getElementById('addSingleBtn'),
     locationsList: document.getElementById('locationsList'),
+    locationSearchInput: document.getElementById('locationSearchInput'),
     locationCount: document.getElementById('locationCount'),
     geocodedCount: document.getElementById('geocodedCount'),
     listSummary: document.getElementById('listSummary'),
@@ -209,8 +229,6 @@ function initUI() {
     detailDrawer: document.getElementById('detailDrawer'),
     detailTitle: document.getElementById('detailTitle'),
     detailCategory: document.getElementById('detailCategory'),
-    detailStatus: document.getElementById('detailStatus'),
-    detailViewportTag: document.getElementById('detailViewportTag'),
     detailAddress: document.getElementById('detailAddress'),
     detailReason: document.getElementById('detailReason'),
     detailCoords: document.getElementById('detailCoords'),
@@ -234,9 +252,16 @@ function initUI() {
 }
 
 function hasCoordinates(loc) {
-  const lat = Number(loc.latitude);
-  const lng = Number(loc.longitude);
-  return Number.isFinite(lat) && Number.isFinite(lng);
+  const lat = loc && loc.latitude;
+  const lng = loc && loc.longitude;
+  return lat !== null &&
+    lat !== undefined &&
+    lat !== '' &&
+    lng !== null &&
+    lng !== undefined &&
+    lng !== '' &&
+    Number.isFinite(Number(lat)) &&
+    Number.isFinite(Number(lng));
 }
 
 function isMobileLayout() {
@@ -563,7 +588,16 @@ function parseCoordinatePair(location) {
 }
 
 function hasValidPoint(point) {
-  return Number.isFinite(Number(point && point.latitude)) && Number.isFinite(Number(point && point.longitude));
+  const lat = point && point.latitude;
+  const lng = point && point.longitude;
+  return lat !== null &&
+    lat !== undefined &&
+    lat !== '' &&
+    lng !== null &&
+    lng !== undefined &&
+    lng !== '' &&
+    Number.isFinite(Number(lat)) &&
+    Number.isFinite(Number(lng));
 }
 
 function joinAddressParts(parts) {
@@ -620,6 +654,7 @@ function normalizeSuggestion(raw, source, keyword, index) {
     id: normalizeOptionalText(raw && raw.id),
     name,
     address: buildSuggestionAddress(raw) || keyword,
+    type: normalizeOptionalText(raw && raw.type),
     district: normalizeOptionalText(raw && (raw.district || raw.adname)),
     cityname: normalizeOptionalText(raw && raw.cityname),
     citycode: normalizeOptionalText(raw && raw.citycode),
@@ -645,6 +680,7 @@ function mergeSuggestion(existing, incoming) {
     cityname: incoming.cityname || existing.cityname,
     citycode: incoming.citycode || existing.citycode,
     adcode: incoming.adcode || existing.adcode,
+    type: incoming.type || existing.type,
     latitude: incomingHasPoint ? incoming.latitude : existing.latitude,
     longitude: incomingHasPoint ? incoming.longitude : existing.longitude,
     source: incoming.source === 'place-search' ? incoming.source : existing.source,
@@ -880,7 +916,7 @@ async function resolveSuggestionDetails(selected) {
 
 async function loadLocations() {
   try {
-    locations = await requestJson('/api/locations');
+    locations = (await requestJson('/api/locations')).map(normalizeLocationRecord);
     syncFilteredSelectionState();
     renderLocationsList();
     renderMarkers();
@@ -908,9 +944,50 @@ function getCategoryLabel(category) {
   return CATEGORIES[category].label;
 }
 
+function getLocationSourceType(loc) {
+  return loc && loc.sourceType ? loc.sourceType : 'manual';
+}
+
+function getSourceLabel(sourceType) {
+  return SOURCE_TYPES[sourceType] || SOURCE_TYPES.manual;
+}
+
 function getCategoryFilterLabel(category) {
   if (category === 'all') return '全部';
   return getCategoryLabel(category);
+}
+
+function normalizeSearchKeyword(value) {
+  return typeof value === 'string'
+    ? value.trim()
+    : '';
+}
+
+function normalizeCategoryValue(value) {
+  const normalized = typeof value === 'string'
+    ? value.trim().toLowerCase().replace(/\s+/g, '')
+    : '';
+
+  if (!normalized) return null;
+  if (CATEGORIES[normalized]) return normalized;
+
+  for (const [category, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if (aliases.some((alias) => {
+      const normalizedAlias = alias.toLowerCase().replace(/\s+/g, '');
+      return normalizedAlias === normalized || (normalizedAlias.length >= 2 && normalized.includes(normalizedAlias));
+    })) {
+      return category;
+    }
+  }
+
+  return null;
+}
+
+function normalizeLocationRecord(location) {
+  return {
+    ...location,
+    category: normalizeCategoryValue(location && location.category)
+  };
 }
 
 function normalizeCategoryFilter(value) {
@@ -953,8 +1030,46 @@ function matchesCategoryFilter(loc, category = activeCategoryFilter) {
   return loc.category === category;
 }
 
+function matchesKeywordFilter(loc, keyword = activeSearchKeyword) {
+  const normalizedKeyword = normalizeSearchKeyword(keyword).toLowerCase();
+  if (!normalizedKeyword) return true;
+
+  const haystack = [
+    loc.name,
+    loc.address,
+    loc.reason,
+    getCategoryLabel(loc.category),
+    getSourceLabel(getLocationSourceType(loc)),
+    loc.sourceContent,
+    loc.city,
+    loc.district
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return haystack.includes(normalizedKeyword);
+}
+
 function getFilteredLocations() {
-  return locations.filter((loc) => matchesCategoryFilter(loc));
+  return locations.filter((loc) =>
+    matchesCategoryFilter(loc) &&
+    matchesKeywordFilter(loc)
+  );
+}
+
+function getActiveFilterSummary() {
+  const segments = [];
+
+  if (activeCategoryFilter !== 'all') {
+    segments.push(getCategoryFilterLabel(activeCategoryFilter));
+  }
+
+  if (activeSearchKeyword) {
+    segments.push(`关键词“${activeSearchKeyword}”`);
+  }
+
+  return segments.join(' / ');
 }
 
 function syncFilteredSelectionState() {
@@ -996,9 +1111,10 @@ function updateViewportSummary() {
   }
 
   if (count === 0) {
-    const emptyMessage = activeCategoryFilter === 'all'
-      ? '当前视野内暂无已定位地点，移动或缩放地图后会实时更新。'
-      : `当前视野内暂无${getCategoryFilterLabel(activeCategoryFilter)}地点，移动或缩放地图后会实时更新。`;
+    const filterSummary = getActiveFilterSummary();
+    const emptyMessage = filterSummary
+      ? `当前视野内暂无符合“${filterSummary}”的已定位地点，移动或缩放地图后会实时更新。`
+      : '当前视野内暂无已定位地点，移动或缩放地图后会实时更新。';
     ui.viewportHint.textContent = emptyMessage;
     if (ui.mobileViewportHint) {
       ui.mobileViewportHint.textContent = emptyMessage;
@@ -1117,7 +1233,8 @@ function renderLocationsList() {
   }
 
   if (filteredLocations.length === 0) {
-    ui.locationsList.innerHTML = `<div class="empty-state">当前分类“${escapeHtml(getCategoryFilterLabel(activeCategoryFilter))}”下暂无地点。</div>`;
+    const filterSummary = getActiveFilterSummary();
+    ui.locationsList.innerHTML = `<div class="empty-state">${filterSummary ? `当前筛选“${escapeHtml(filterSummary)}”下暂无地点。` : '当前没有可显示的地点。'}</div>`;
     return;
   }
 
@@ -1129,6 +1246,7 @@ function renderLocationsList() {
     const categoryBadge = category
       ? `<span class="category-badge" style="--badge-color:${category.color};background:${category.color}14;border-color:${category.color}26;color:${category.color};">${escapeHtml(getCategoryLabel(loc.category))}</span>`
       : '';
+    const sourceBadge = `<span class="source-badge">${escapeHtml(getSourceLabel(getLocationSourceType(loc)))}</span>`;
     const revealLabel = hasCoords ? '地图聚焦' : '待定位';
     const revealDisabled = hasCoords ? '' : ' disabled aria-disabled="true"';
     const navigateDisabled = hasCoords ? '' : ' disabled aria-disabled="true"';
@@ -1146,7 +1264,10 @@ function renderLocationsList() {
           <div class="location-top">
             <div class="location-heading">
               <p class="location-name">${escapeHtml(loc.name)}</p>
-              ${categoryBadge}
+              <div class="location-meta-badges">
+                ${categoryBadge}
+                ${sourceBadge}
+              </div>
             </div>
           </div>
           <p class="location-address">${escapeHtml(loc.address)}</p>
@@ -1197,7 +1318,6 @@ function renderMarkers() {
 function syncDetailDrawer() {
   const loc = getLocationById(activeDetailLocationId);
   const category = loc ? CATEGORIES[loc.category] : null;
-  const inView = loc ? visibleLocationIds.has(loc.id) : false;
   const hasPoint = loc ? hasCoordinates(loc) : false;
 
   if (!loc) {
@@ -1208,9 +1328,6 @@ function syncDetailDrawer() {
     ui.detailCoords.textContent = '未定位';
     ui.detailCreatedAt.textContent = '未知';
     ui.detailCategory.hidden = true;
-    ui.detailViewportTag.hidden = true;
-    ui.detailStatus.textContent = '待定位';
-    ui.detailStatus.className = 'status status-pending';
     ui.detailFocusBtn.disabled = true;
     ui.detailNavigateBtn.disabled = true;
     return;
@@ -1241,9 +1358,6 @@ function syncDetailDrawer() {
     ui.detailCategory.textContent = '';
   }
 
-  ui.detailStatus.textContent = hasPoint ? '已带坐标' : '待定位';
-  ui.detailStatus.className = `status ${hasPoint ? 'status-geocoded' : 'status-pending'}`;
-  ui.detailViewportTag.hidden = !inView;
   ui.detailFocusBtn.disabled = !hasPoint;
   ui.detailNavigateBtn.disabled = !hasPoint;
 }
@@ -1508,12 +1622,13 @@ function exportData(format = 'json') {
     a.click();
     URL.revokeObjectURL(url);
   } else if (format === 'csv') {
-    const headers = ['ID', '名称', '地址', '分类', '理由', '纬度', '经度', '添加时间'];
+    const headers = ['ID', '名称', '地址', '分类', '来源', '理由', '纬度', '经度', '添加时间'];
     const rows = locations.map(loc => [
       loc.id,
       `"${loc.name}"`,
       `"${loc.address}"`,
       loc.category || '',
+      getSourceLabel(getLocationSourceType(loc)),
       loc.reason ? `"${loc.reason}"` : '',
       loc.latitude || '',
       loc.longitude || '',
@@ -1569,11 +1684,11 @@ async function saveEdit() {
   }
 
   try {
-    const result = await requestJson(`/api/locations?id=${id}`, {
+    const result = normalizeLocationRecord(await requestJson(`/api/locations?id=${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
-    });
+    }));
 
     const index = locations.findIndex(l => l.id === id);
     if (index !== -1) {
@@ -1630,14 +1745,22 @@ async function addSingleLocation() {
       reason: reason,
       category: category,
       latitude: resolvedSuggestion.latitude,
-      longitude: resolvedSuggestion.longitude
+      longitude: resolvedSuggestion.longitude,
+      sourceType: 'manual',
+      sourcePlatform: 'web',
+      createdBy: 'user',
+      confidence: 'high',
+      matchType: 'manual_search',
+      poiType: resolvedSuggestion.type || null,
+      city: resolvedSuggestion.cityname || SEARCH_CITY,
+      district: resolvedSuggestion.district || null
     };
 
-    const savedLocation = await requestJson('/api/locations', {
+    const savedLocation = normalizeLocationRecord(await requestJson('/api/locations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(location)
-    });
+    }));
 
     locations.push(savedLocation);
     renderLocationsList();
@@ -1718,6 +1841,7 @@ function showSuggestions(pois) {
         cityname: poi.cityname || '',
         citycode: poi.citycode || '',
         adcode: poi.adcode || '',
+        type: poi.type || '',
         latitude: poi.latitude,
         longitude: poi.longitude,
         source: poi.source,
@@ -1865,12 +1989,24 @@ function handleCategoryFilterChange(event) {
   applyCategoryFilter(event.target.value);
 }
 
+function applySearchFilters() {
+  syncFilteredSelectionState();
+  renderLocationsList();
+  renderMarkers();
+}
+
+function handleKeywordSearchInput(event) {
+  activeSearchKeyword = normalizeSearchKeyword(event.target.value);
+  applySearchFilters();
+}
+
 function bindEvents() {
   ui.addSingleBtn.addEventListener('click', addSingleLocation);
   ui.locateMeBtn.addEventListener('click', locateMe);
   ui.exportBtn.addEventListener('click', handleExportDialog);
   ui.categoryFilterSelect.addEventListener('change', handleCategoryFilterChange);
   ui.mobileCategoryFilterSelect.addEventListener('change', handleCategoryFilterChange);
+  ui.locationSearchInput.addEventListener('input', handleKeywordSearchInput);
   ui.mobileLocateBtn.addEventListener('click', locateMe);
   ui.mobileAddToggleBtn.addEventListener('click', () => {
     if (isAddSheetOpen) {

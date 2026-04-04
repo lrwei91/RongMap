@@ -6,6 +6,7 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const fs = require('fs');
 const { DEFAULT_CITY, geocodeAddress, normalizePreferredCity, searchPlaces } = require('./lib/amap');
+const { applyLocationUpdates, buildLocationRecord } = require('./lib/location-record');
 
 const app = express();
 const PORT = 3000;
@@ -47,23 +48,19 @@ app.get('/api/locations', (req, res) => {
 
 // API: 添加地点
 app.post('/api/locations', (req, res) => {
-  const { name, address, latitude, longitude, reason, category } = req.body;
+  const { name, address } = req.body;
 
   if (!name || !address) {
     return res.status(400).json({ error: '名称和地址不能为空' });
   }
 
   const locations = readData();
-  const newLocation = {
-    id: Date.now().toString(),
-    name,
-    address,
-    reason: reason || null,
-    category: category || null,
-    latitude: latitude || null,
-    longitude: longitude || null,
-    createdAt: new Date().toISOString()
-  };
+  const newLocation = buildLocationRecord({
+    ...req.body,
+    sourceType: req.body.sourceType || 'manual',
+    sourcePlatform: req.body.sourcePlatform || 'web',
+    createdBy: req.body.createdBy || 'user'
+  });
 
   locations.push(newLocation);
   writeData(locations);
@@ -87,19 +84,7 @@ app.put('/api/locations', (req, res) => {
     return res.status(404).json({ error: '未找到该地点' });
   }
 
-  const previousAddress = locations[index].address;
-  const allowedFields = ['name', 'address', 'reason', 'category', 'latitude', 'longitude'];
-
-  allowedFields.forEach((field) => {
-    if (updates[field] !== undefined) {
-      locations[index][field] = updates[field];
-    }
-  });
-
-  if (updates.address && updates.address !== previousAddress && updates.latitude === undefined && updates.longitude === undefined) {
-    locations[index].latitude = null;
-    locations[index].longitude = null;
-  }
+  locations[index] = applyLocationUpdates(locations[index], updates);
 
   writeData(locations);
   res.json(locations[index]);
@@ -115,13 +100,14 @@ app.post('/api/locations/batch', (req, res) => {
 
   const locations = readData();
   const addedLocations = newLocations.map((loc, index) => ({
-    id: Date.now().toString() + index,
-    name: loc.name || '',
-    address: loc.address || '',
-    reason: loc.reason || null,
-    latitude: loc.latitude || null,
-    longitude: loc.longitude || null,
-    createdAt: new Date().toISOString()
+    ...buildLocationRecord({
+      ...loc,
+      sourceType: loc.sourceType || 'manual',
+      sourcePlatform: loc.sourcePlatform || 'web',
+      createdBy: loc.createdBy || 'user'
+    }, {
+      id: `${Date.now()}${index}`
+    })
   }));
 
   locations.push(...addedLocations);

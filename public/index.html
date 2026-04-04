@@ -95,6 +95,9 @@
                 </button>
               </div>
             </div>
+            <div class="list-filters" aria-label="地点检索与过滤">
+              <input type="search" id="locationSearchInput" class="list-search-input" placeholder="搜索名称、地址、备注">
+            </div>
             <div id="locationsList" class="locations-list" aria-live="polite"></div>
           </section>
         </div>
@@ -105,7 +108,6 @@
           <div class="map-head-top">
             <p class="map-note">点击地点卡片查看详情，地图与列表会保持高亮同步。</p>
             <label class="map-filter" for="categoryFilterSelect">
-              <span class="map-filter-label">分类筛选</span>
               <select id="categoryFilterSelect" class="map-filter-select" aria-label="按分类筛选地点"></select>
             </label>
           </div>
@@ -149,8 +151,6 @@
         </div>
         <div class="drawer-badges">
           <span id="detailCategory" class="category-badge detail-category" hidden></span>
-          <span id="detailStatus" class="status status-pending">待定位</span>
-          <span id="detailViewportTag" class="detail-chip" hidden>当前视野</span>
         </div>
         <div class="drawer-body">
           <section class="detail-section">

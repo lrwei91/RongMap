@@ -89,10 +89,13 @@ async function runTests() {
   });
   console.log(`  状态：${wanda.status}`);
   console.log(`  结果：${wanda.body.status}`);
+  if (wanda.body.ruleDecision) {
+    console.log(`  规则：${wanda.body.ruleDecision}`);
+  }
   if (wanda.body.candidates) {
     console.log(`  候选：${wanda.body.candidates.length} 个`);
     wanda.body.candidates.forEach((c, i) => {
-      console.log(`    ${i+1}. ${c.name} - ${c.address.substring(0, 30)}...`);
+      console.log(`    ${i+1}. ${c.name} - ${c.address.substring(0, 30)}... [${c.category || '无分类'}]`);
     });
   }
   console.log();
@@ -109,6 +112,7 @@ async function runTests() {
     console.log(`  结果：${confirm.body.status}`);
     if (confirm.body.location) {
       console.log(`  地点：${confirm.body.location.name}`);
+      console.log(`  分类：${confirm.body.location.category}`);
     }
     console.log();
   }

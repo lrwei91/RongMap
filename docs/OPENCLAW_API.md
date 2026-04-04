@@ -30,8 +30,16 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `query` | string | ✅ | 地点名称（自由文本） |
-| `category` | string | ❌ | 地点分类 |
+| `inputType` | string | ❌ | 输入类型：`text` / `map_location` / `douyin_url` / `video` |
+| `query` | string | ❌ | 简短地点查询词 |
+| `content` | string | ❌ | 原始文本、URL 或外部内容 |
+| `locationPayload` | object | ❌ | 地图定位信息 |
+| `locationPayload.name` | string | ❌ | 地点名称 |
+| `locationPayload.address` | string | ❌ | 地点地址 |
+| `locationPayload.latitude` | number | ❌ | 纬度 |
+| `locationPayload.longitude` | number | ❌ | 经度 |
+| `metadata` | object | ❌ | 附加上下文，如标题、描述、OCR、坐标文本等 |
+| `category` | string | ❌ | 地点分类，支持中文别名，服务端会归一化为内部枚举 |
 | `reason` | string | ❌ | 添加原因 |
 | `city` | string | ❌ | 搜索城市，默认"福州" |
 
@@ -44,19 +52,18 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
 ```json
 {
   "status": "saved",
-  "message": "地点已自动保存",
+  "message": "餐饮美食地点已自动保存",
+  "ruleDecision": "food_auto_save",
   "location": {
     "id": "1712345678901",
     "name": "三坊七巷",
     "address": "福建省福州市鼓楼区东街口",
     "latitude": 26.08528,
     "longitude": 119.29653,
-    "category": null,
+    "category": "food",
     "reason": null,
     "createdAt": "2026-04-04T01:23:45.678Z"
-  },
-  "category": null,
-  "reason": null
+  }
 }
 ```
 
@@ -67,7 +74,8 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
 ```json
 {
   "status": "needs_confirmation",
-  "message": "找到多个候选地点，请确认",
+  "message": "高德找到多个匹配地点，请确认",
+  "ruleDecision": "multiple_candidates",
   "query": "万达广场",
   "candidates": [
     {
@@ -76,8 +84,11 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
       "address": "福建省福州市台江区鳌峰街道鳌江路 8 号",
       "latitude": 26.06234,
       "longitude": 119.33456,
+      "category": "shopping",
+      "poiType": "购物服务;商场;综合性商场",
       "type": "购物服务;商场;综合性商场",
-      "confidence": "high"
+      "confidence": "high",
+      "ruleDecision": "multiple_candidates"
     },
     {
       "id": 2,
@@ -85,8 +96,11 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
       "address": "福建省福州市仓山区浦上大道 276 号",
       "latitude": 26.03456,
       "longitude": 119.28901,
+      "category": "shopping",
+      "poiType": "购物服务;商场;综合性商场",
       "type": "购物服务;商场;综合性商场",
-      "confidence": "high"
+      "confidence": "high",
+      "ruleDecision": "multiple_candidates"
     },
     {
       "id": 3,
@@ -94,18 +108,19 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
       "address": "福建省福州市晋安区南平东路",
       "latitude": 26.12345,
       "longitude": 119.31234,
+      "category": "shopping",
+      "poiType": "购物服务;商场;综合性商场",
       "type": "购物服务;商场;综合性商场",
-      "confidence": "medium"
+      "confidence": "medium",
+      "ruleDecision": "multiple_candidates"
     }
-  ],
-  "category": null,
-  "reason": null
+  ]
 }
 ```
 
 #### 3. `duplicate` - 重复地点
 
-地点已存在，不重复写入。
+仅当命中用户已保存地点时返回 `duplicate`；高德 POI 命中不会复用这个状态。
 
 ```json
 {
@@ -182,7 +197,7 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
     "address": "福建省福州市台江区鳌峰街道鳌江路 8 号",
     "latitude": 26.06234,
     "longitude": 119.33456,
-    "category": "购物",
+    "category": "shopping",
     "reason": "用户添加",
     "createdAt": "2026-04-04T01:25:00.000Z"
   }
@@ -225,8 +240,8 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
 
 ```json
 {
-  "error": "query 必填",
-  "code": "MISSING_QUERY"
+  "error": "candidate 必填",
+  "code": "MISSING_CANDIDATE"
 }
 ```
 
@@ -273,7 +288,7 @@ OpenClaw -> 用户：✅ 已添加"三坊七巷"到地图
 用户：帮我添加"万达广场"到地图
 
 OpenClaw -> API: POST /intake { query: "万达广场" }
-API -> OpenClaw: { status: "needs_confirmation", candidates: [...] }
+API -> OpenClaw: { status: "needs_confirmation", ruleDecision: "multiple_candidates", candidates: [...] }
 
 OpenClaw -> 用户：
 找到以下候选地点，请选择：

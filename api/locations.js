@@ -1,4 +1,5 @@
 const { kv } = require('@vercel/kv');
+const { applyLocationUpdates, buildLocationRecord } = require('../lib/location-record');
 
 const LOCATIONS_KEY = 'locations';
 
@@ -29,23 +30,19 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { name, address, latitude, longitude, reason, category } = req.body;
+      const { name, address } = req.body;
 
       if (!name || !address) {
         return res.status(400).json({ error: '名称和地址不能为空' });
       }
 
       const locations = await getLocations();
-      const newLocation = {
-        id: Date.now().toString(),
-        name,
-        address,
-        reason: reason || null,
-        category: category || null,
-        latitude: latitude || null,
-        longitude: longitude || null,
-        createdAt: new Date().toISOString()
-      };
+      const newLocation = buildLocationRecord({
+        ...req.body,
+        sourceType: req.body.sourceType || 'manual',
+        sourcePlatform: req.body.sourcePlatform || 'web',
+        createdBy: req.body.createdBy || 'user'
+      });
 
       locations.push(newLocation);
       await saveLocations(locations);
@@ -64,19 +61,7 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ error: '未找到该地点' });
       }
 
-      // 更新允许的字段
-      const allowedFields = ['name', 'address', 'reason', 'category', 'latitude', 'longitude'];
-      allowedFields.forEach(field => {
-        if (updates[field] !== undefined) {
-          locations[index][field] = updates[field];
-        }
-      });
-
-      // 如果更新了地址但没有坐标，清除旧坐标
-      if (updates.address && updates.address !== locations[index].address && !updates.latitude) {
-        locations[index].latitude = null;
-        locations[index].longitude = null;
-      }
+      locations[index] = applyLocationUpdates(locations[index], updates);
 
       await saveLocations(locations);
       return res.status(200).json(locations[index]);
