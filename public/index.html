@@ -102,7 +102,13 @@
 
       <main class="map-panel" aria-label="地图展示区">
         <div class="map-head">
-          <p class="map-note">点击地点卡片查看详情，地图与列表会保持高亮同步。</p>
+          <div class="map-head-top">
+            <p class="map-note">点击地点卡片查看详情，地图与列表会保持高亮同步。</p>
+            <label class="map-filter" for="categoryFilterSelect">
+              <span class="map-filter-label">分类筛选</span>
+              <select id="categoryFilterSelect" class="map-filter-select" aria-label="按分类筛选地点"></select>
+            </label>
+          </div>
           <div class="map-meta">
             <span id="viewportCount" class="map-chip">视野内 0</span>
             <p id="viewportHint" class="map-hint">移动地图后会显示当前视野内的地点。</p>
@@ -110,6 +116,11 @@
         </div>
         <div id="map"></div>
         <div id="mobileMapOverlay" class="mobile-map-overlay mobile-only" aria-live="polite">
+          <div class="mobile-filter-bar">
+            <label class="map-filter map-filter-mobile" for="mobileCategoryFilterSelect">
+              <select id="mobileCategoryFilterSelect" class="map-filter-select" aria-label="按分类筛选地点"></select>
+            </label>
+          </div>
           <div class="mobile-chip-row">
             <span id="mobileLocationSummary" class="map-chip">0 个地点 · 0 个已带坐标</span>
             <span id="mobileViewportCount" class="map-chip">视野内 0</span>

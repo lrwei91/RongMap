@@ -38,6 +38,7 @@ let myLocationMarker = null;
 let myLocationInfoWindow = null;
 let isAddSheetOpen = false;
 let isListSheetOpen = false;
+let activeCategoryFilter = 'all';
 
 let ui = {};
 
@@ -203,6 +204,8 @@ function initUI() {
     locateMeBtn: document.getElementById('locateMeBtn'),
     exportBtn: document.getElementById('exportBtn'),
     categorySelect: document.getElementById('categorySelect'),
+    categoryFilterSelect: document.getElementById('categoryFilterSelect'),
+    mobileCategoryFilterSelect: document.getElementById('mobileCategoryFilterSelect'),
     detailDrawer: document.getElementById('detailDrawer'),
     detailTitle: document.getElementById('detailTitle'),
     detailCategory: document.getElementById('detailCategory'),
@@ -878,6 +881,7 @@ async function resolveSuggestionDetails(selected) {
 async function loadLocations() {
   try {
     locations = await requestJson('/api/locations');
+    syncFilteredSelectionState();
     renderLocationsList();
     renderMarkers();
   } catch (err) {
@@ -887,14 +891,15 @@ async function loadLocations() {
 }
 
 function updateStats() {
-  const geocodedCount = locations.filter(hasCoordinates).length;
-  ui.locationCount.textContent = String(locations.length);
+  const filteredLocations = getFilteredLocations();
+  const geocodedCount = filteredLocations.filter(hasCoordinates).length;
+  ui.locationCount.textContent = String(filteredLocations.length);
   ui.geocodedCount.textContent = String(geocodedCount);
   if (ui.mobileLocationSummary) {
-    ui.mobileLocationSummary.textContent = `${locations.length} 个地点 · ${geocodedCount} 个已带坐标`;
+    ui.mobileLocationSummary.textContent = `${filteredLocations.length} 个地点 · ${geocodedCount} 个已带坐标`;
   }
   if (ui.listSummary) {
-    ui.listSummary.textContent = `${locations.length} 个地点，${geocodedCount} 个已带坐标`;
+    ui.listSummary.textContent = `${filteredLocations.length} 个地点，${geocodedCount} 个已带坐标`;
   }
 }
 
@@ -903,8 +908,85 @@ function getCategoryLabel(category) {
   return CATEGORIES[category].label;
 }
 
+function getCategoryFilterLabel(category) {
+  if (category === 'all') return '全部';
+  return getCategoryLabel(category);
+}
+
+function normalizeCategoryFilter(value) {
+  return value && CATEGORIES[value] ? value : 'all';
+}
+
+function buildCategoryFilterOptionsMarkup() {
+  const options = ['<option value="all">全部</option>'];
+
+  Object.entries(CATEGORIES).forEach(([value, category]) => {
+    options.push(`<option value="${value}">${escapeHtml(category.label)}</option>`);
+  });
+
+  return options.join('');
+}
+
+function syncCategoryFilterControls() {
+  [ui.categoryFilterSelect, ui.mobileCategoryFilterSelect].forEach((select) => {
+    if (select) {
+      select.value = activeCategoryFilter;
+    }
+  });
+}
+
+function initializeCategoryFilterControls() {
+  const markup = buildCategoryFilterOptionsMarkup();
+
+  [ui.categoryFilterSelect, ui.mobileCategoryFilterSelect].forEach((select) => {
+    if (select) {
+      select.innerHTML = markup;
+    }
+  });
+
+  syncCategoryFilterControls();
+}
+
+function matchesCategoryFilter(loc, category = activeCategoryFilter) {
+  if (!loc) return false;
+  if (category === 'all') return true;
+  return loc.category === category;
+}
+
+function getFilteredLocations() {
+  return locations.filter((loc) => matchesCategoryFilter(loc));
+}
+
+function syncFilteredSelectionState() {
+  const filteredLocationIds = new Set(getFilteredLocations().map((loc) => loc.id));
+
+  if (activeLocationId && !filteredLocationIds.has(activeLocationId)) {
+    activeLocationId = null;
+  }
+
+  if (activeDetailLocationId && !filteredLocationIds.has(activeDetailLocationId)) {
+    closeDetailDrawer({ restoreFocus: false });
+  }
+}
+
+function applyCategoryFilter(value, options = {}) {
+  const nextFilter = normalizeCategoryFilter(value);
+
+  if (!options.force && nextFilter === activeCategoryFilter) {
+    syncCategoryFilterControls();
+    return;
+  }
+
+  activeCategoryFilter = nextFilter;
+  syncCategoryFilterControls();
+  syncFilteredSelectionState();
+  renderLocationsList();
+  renderMarkers();
+}
+
 function updateViewportSummary() {
-  const visibleLocations = locations.filter((loc) => visibleLocationIds.has(loc.id));
+  const filteredLocations = getFilteredLocations();
+  const visibleLocations = filteredLocations.filter((loc) => visibleLocationIds.has(loc.id));
   const count = visibleLocations.length;
   const previewNames = visibleLocations.slice(0, 3).map((loc) => loc.name);
 
@@ -914,9 +996,12 @@ function updateViewportSummary() {
   }
 
   if (count === 0) {
-    ui.viewportHint.textContent = '当前视野内暂无已定位地点，移动或缩放地图后会实时更新。';
+    const emptyMessage = activeCategoryFilter === 'all'
+      ? '当前视野内暂无已定位地点，移动或缩放地图后会实时更新。'
+      : `当前视野内暂无${getCategoryFilterLabel(activeCategoryFilter)}地点，移动或缩放地图后会实时更新。`;
+    ui.viewportHint.textContent = emptyMessage;
     if (ui.mobileViewportHint) {
-      ui.mobileViewportHint.textContent = '当前视野内暂无已定位地点，移动或缩放地图后会实时更新。';
+      ui.mobileViewportHint.textContent = emptyMessage;
     }
     return;
   }
@@ -943,7 +1028,7 @@ function refreshViewportState(force = false) {
   }
 
   const nextVisibleIds = new Set(
-    locations
+    getFilteredLocations()
       .filter(hasCoordinates)
       .filter((loc) => bounds.contains([Number(loc.longitude), Number(loc.latitude)]))
       .map((loc) => loc.id)
@@ -1024,22 +1109,25 @@ function buildMarkerIcon(loc, isActive = false) {
 
 function renderLocationsList() {
   updateStats();
+  const filteredLocations = getFilteredLocations();
 
   if (locations.length === 0) {
     ui.locationsList.innerHTML = '<div class="empty-state">还没有保存的地点。先在上方搜索一个地点，再把它加入地图。</div>';
     return;
   }
 
-  ui.locationsList.innerHTML = locations.map((loc) => {
+  if (filteredLocations.length === 0) {
+    ui.locationsList.innerHTML = `<div class="empty-state">当前分类“${escapeHtml(getCategoryFilterLabel(activeCategoryFilter))}”下暂无地点。</div>`;
+    return;
+  }
+
+  ui.locationsList.innerHTML = filteredLocations.map((loc) => {
     const hasCoords = hasCoordinates(loc);
     const activeClass = activeLocationId === loc.id ? 'is-active' : '';
     const inViewClass = visibleLocationIds.has(loc.id) ? 'is-in-view' : '';
     const category = CATEGORIES[loc.category];
     const categoryBadge = category
       ? `<span class="category-badge" style="--badge-color:${category.color};background:${category.color}14;border-color:${category.color}26;color:${category.color};">${escapeHtml(getCategoryLabel(loc.category))}</span>`
-      : '';
-    const viewportBadge = visibleLocationIds.has(loc.id)
-      ? '<span class="detail-chip detail-chip-inline">当前视野</span>'
       : '';
     const revealLabel = hasCoords ? '地图聚焦' : '待定位';
     const revealDisabled = hasCoords ? '' : ' disabled aria-disabled="true"';
@@ -1059,9 +1147,7 @@ function renderLocationsList() {
             <div class="location-heading">
               <p class="location-name">${escapeHtml(loc.name)}</p>
               ${categoryBadge}
-              ${viewportBadge}
             </div>
-            <span class="status ${hasCoords ? 'status-geocoded' : 'status-pending'}">${hasCoords ? '已带坐标' : '待定位'}</span>
           </div>
           <p class="location-address">${escapeHtml(loc.address)}</p>
           ${loc.reason ? `<p class="location-reason">${escapeHtml(loc.reason)}</p>` : ''}
@@ -1080,7 +1166,7 @@ function renderMarkers() {
   markers = [];
   markerMap = new Map();
 
-  locations.forEach((loc) => {
+  getFilteredLocations().forEach((loc) => {
     if (!hasCoordinates(loc)) return;
     const isActive = activeLocationId === loc.id;
     const { width, height } = getMarkerSize(isActive);
@@ -1164,7 +1250,7 @@ function syncDetailDrawer() {
 
 function openDetailDrawer(id, options = {}) {
   const loc = getLocationById(id);
-  if (!loc) return;
+  if (!loc || !matchesCategoryFilter(loc)) return false;
 
   closeMobileSheets({ restoreFocus: false });
   activeDetailLocationId = id;
@@ -1187,6 +1273,8 @@ function openDetailDrawer(id, options = {}) {
       ui.detailCloseBtn.focus();
     }
   });
+
+  return true;
 }
 
 function closeDetailDrawer(options = {}) {
@@ -1492,10 +1580,7 @@ async function saveEdit() {
       locations[index] = { ...locations[index], ...result };
     }
 
-    if (activeDetailLocationId === id) {
-      syncDetailDrawer();
-    }
-
+    syncFilteredSelectionState();
     renderLocationsList();
     renderMarkers();
     closeEditDialog();
@@ -1557,14 +1642,17 @@ async function addSingleLocation() {
     locations.push(savedLocation);
     renderLocationsList();
     renderMarkers();
-    openDetailDrawer(savedLocation.id, { focusMap: true, zoom: FOCUS_ZOOM });
+    const shouldRevealSavedLocation = matchesCategoryFilter(savedLocation);
+    if (shouldRevealSavedLocation) {
+      openDetailDrawer(savedLocation.id, { focusMap: true, zoom: FOCUS_ZOOM });
+    }
 
     ui.singleInput.value = '';
     ui.reasonInput.value = '';
     ui.categorySelect.value = '';
     selectedSuggestion = null;
     hideSuggestions();
-    showToast('地点已添加', 'success');
+    showToast(shouldRevealSavedLocation ? '地点已添加' : '地点已添加，当前筛选未显示该地点', 'success');
   } catch (err) {
     showToast(`添加失败：${err.message}`, 'error');
   } finally {
@@ -1773,10 +1861,16 @@ function handleExportDialog() {
   exportData(format);
 }
 
+function handleCategoryFilterChange(event) {
+  applyCategoryFilter(event.target.value);
+}
+
 function bindEvents() {
   ui.addSingleBtn.addEventListener('click', addSingleLocation);
   ui.locateMeBtn.addEventListener('click', locateMe);
   ui.exportBtn.addEventListener('click', handleExportDialog);
+  ui.categoryFilterSelect.addEventListener('change', handleCategoryFilterChange);
+  ui.mobileCategoryFilterSelect.addEventListener('change', handleCategoryFilterChange);
   ui.mobileLocateBtn.addEventListener('click', locateMe);
   ui.mobileAddToggleBtn.addEventListener('click', () => {
     if (isAddSheetOpen) {
@@ -1892,6 +1986,7 @@ function bindEvents() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initUI();
+  initializeCategoryFilterControls();
   syncMobileSheetState();
   initMap(() => {
     bindEvents();
