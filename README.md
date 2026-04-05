@@ -51,3 +51,13 @@ npm start
 ## 数据说明
 
 所有地点数据存储在 `data/locations.json` 文件中
+
+## KV 本地备份
+
+如果线上部署使用 Vercel KV，可以在项目根目录执行：
+
+```bash
+npm run backup:kv
+```
+
+脚本会把云端 `locations` 数据同步到 `data/backups/locations-latest.json`，并额外保留一份带时间戳的快照文件。

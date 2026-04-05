@@ -983,6 +983,10 @@ button:focus-visible {
   gap: 10px;
 }
 
+.drawer-actions > :first-child {
+  grid-column: 1 / -1;
+}
+
 .btn-danger-ghost {
   color: var(--danger);
   background: rgba(185, 28, 28, 0.06);
@@ -1324,7 +1328,6 @@ button:focus-visible {
     background: rgba(88, 111, 140, 0.26);
   }
 
-  .drawer-actions,
   .detail-grid {
     grid-template-columns: 1fr;
   }

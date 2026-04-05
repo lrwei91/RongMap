@@ -235,6 +235,7 @@ function initUI() {
     detailCreatedAt: document.getElementById('detailCreatedAt'),
     detailFocusBtn: document.getElementById('detailFocusBtn'),
     detailNavigateBtn: document.getElementById('detailNavigateBtn'),
+    detailShareBtn: document.getElementById('detailShareBtn'),
     detailEditBtn: document.getElementById('detailEditBtn'),
     detailDeleteBtn: document.getElementById('detailDeleteBtn'),
     detailCloseBtn: document.getElementById('detailCloseBtn'),
@@ -316,6 +317,87 @@ function navigateToLocation(loc) {
 
   window.open(url, '_blank', 'noopener');
   return true;
+}
+
+function buildLocationSharePayload(loc) {
+  const title = loc && loc.name ? loc.name : '地点';
+  const address = loc && loc.address ? loc.address : '未填写地址';
+  const url = loc ? buildNavigationUrl(loc) : '';
+  const nativeText = [title, address].filter(Boolean).join('\n');
+  const fallbackText = url
+    ? `${nativeText}\n${url}`
+    : nativeText;
+
+  return {
+    title,
+    nativeText,
+    fallbackText,
+    url
+  };
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    const copied = document.execCommand('copy');
+    if (!copied) {
+      throw new Error('复制失败');
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+async function shareLocation(loc) {
+  if (!loc) {
+    showToast('未找到可分享的地点', 'error');
+    return;
+  }
+
+  const payload = buildLocationSharePayload(loc);
+
+  if (typeof navigator.share === 'function') {
+    try {
+      const shareData = {
+        title: payload.title,
+        text: payload.nativeText
+      };
+
+      if (payload.url) {
+        shareData.url = payload.url;
+      }
+
+      await navigator.share(shareData);
+      showToast('已打开系统分享面板', 'success');
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        return;
+      }
+
+      console.warn('系统分享失败，回退到复制内容:', err);
+    }
+  }
+
+  try {
+    await copyTextToClipboard(payload.fallbackText);
+    showToast('浏览器不支持系统分享，已复制分享内容', 'success');
+  } catch (err) {
+    showToast(`分享失败：${err.message}`, 'error');
+  }
 }
 
 function triggerMapResize() {
@@ -1330,6 +1412,7 @@ function syncDetailDrawer() {
     ui.detailCategory.hidden = true;
     ui.detailFocusBtn.disabled = true;
     ui.detailNavigateBtn.disabled = true;
+    ui.detailShareBtn.disabled = true;
     return;
   }
 
@@ -1360,6 +1443,7 @@ function syncDetailDrawer() {
 
   ui.detailFocusBtn.disabled = !hasPoint;
   ui.detailNavigateBtn.disabled = !hasPoint;
+  ui.detailShareBtn.disabled = false;
 }
 
 function openDetailDrawer(id, options = {}) {
@@ -1381,6 +1465,8 @@ function openDetailDrawer(id, options = {}) {
   window.requestAnimationFrame(() => {
     if (!ui.detailFocusBtn.disabled) {
       ui.detailFocusBtn.focus();
+    } else if (!ui.detailShareBtn.disabled) {
+      ui.detailShareBtn.focus();
     } else if (!ui.detailEditBtn.disabled) {
       ui.detailEditBtn.focus();
     } else {
@@ -1746,6 +1832,7 @@ async function addSingleLocation() {
       category: category,
       latitude: resolvedSuggestion.latitude,
       longitude: resolvedSuggestion.longitude,
+      sourceId: resolvedSuggestion.id || null,
       sourceType: 'manual',
       sourcePlatform: 'web',
       createdBy: 'user',
@@ -1893,7 +1980,7 @@ function escapeHtml(text) {
 }
 
 function trapDrawerFocus(event) {
-  const focusable = [ui.detailCloseBtn, ui.detailFocusBtn, ui.detailNavigateBtn, ui.detailEditBtn, ui.detailDeleteBtn]
+  const focusable = [ui.detailCloseBtn, ui.detailFocusBtn, ui.detailNavigateBtn, ui.detailShareBtn, ui.detailEditBtn, ui.detailDeleteBtn]
     .filter((element) => element && !element.disabled);
   if (focusable.length === 0) return;
 
@@ -2091,6 +2178,11 @@ function bindEvents() {
     if (!activeDetailLocationId) return;
 
     navigateToLocation(getLocationById(activeDetailLocationId));
+  });
+  ui.detailShareBtn.addEventListener('click', () => {
+    if (!activeDetailLocationId) return;
+
+    shareLocation(getLocationById(activeDetailLocationId));
   });
   ui.detailEditBtn.addEventListener('click', () => {
     if (activeDetailLocationId) {
