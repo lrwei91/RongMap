@@ -686,19 +686,72 @@ button:focus-visible {
   color: var(--text-muted);
 }
 
-#map {
+.map-stage {
+  position: relative;
   flex: 1;
   min-height: 520px;
-  background: #eef2f7;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  will-change: transform;
+  overflow: hidden;
 }
 
-#map .amap-maps,
-#map .amap-layers,
-#map canvas {
-  backface-visibility: hidden;
+#map {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  background: #eef2f7;
+  overflow: hidden;
+}
+
+.map-marker-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.map-screen-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 50% 50% 50% 8px;
+  background: var(--marker-color, #1d4ed8);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.22);
+  cursor: pointer;
+  pointer-events: auto;
+  color: var(--marker-color, #1d4ed8);
+  transform-origin: 50% 100%;
+  transform: rotate(-45deg);
+}
+
+.map-screen-marker span {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  z-index: 1;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--marker-color, #1d4ed8);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.28);
+  transform: rotate(45deg);
+}
+
+.map-screen-marker.is-active {
+  z-index: 2;
+}
+
+.map-screen-marker.is-active {
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.18), 0 10px 22px rgba(15, 23, 42, 0.24);
 }
 
 .mobile-map-overlay {
@@ -1126,7 +1179,7 @@ button:focus-visible {
     -webkit-overflow-scrolling: touch;
   }
 
-  #map {
+  .map-stage {
     min-height: clamp(260px, 36dvh, 360px);
   }
 
@@ -1295,7 +1348,7 @@ button:focus-visible {
     box-shadow: none;
   }
 
-  #map {
+  .map-stage {
     min-height: 100vh;
     min-height: 100svh;
     height: 100vh;

@@ -46,6 +46,7 @@ const SOURCE_TYPES = {
 let map = null;
 let markers = [];
 let markerMap = new Map();
+let markerLayer = null;
 let locations = [];
 let activeLocationId = null;
 let activeDetailLocationId = null;
@@ -82,6 +83,7 @@ function initMap(callback) {
     scale: true
   });
 
+  initMarkerLayer();
   initSearchServices();
   initGeolocationService();
   bindMapEvents();
@@ -193,6 +195,18 @@ function bindMapEvents() {
 
   map.on('moveend', () => refreshViewportState());
   map.on('zoomend', () => refreshViewportState());
+  map.on('mapmove', () => updateMarkerLayerPositions());
+  map.on('zoomchange', () => updateMarkerLayerPositions());
+}
+
+function initMarkerLayer() {
+  const mapContainer = document.getElementById('map');
+  const markerHost = mapContainer && mapContainer.closest('.map-stage');
+  if (!markerHost) return;
+
+  markerLayer = document.createElement('div');
+  markerLayer.className = 'map-marker-layer';
+  markerHost.appendChild(markerLayer);
 }
 
 function initUI() {
@@ -1242,69 +1256,6 @@ function refreshViewportState(force = false) {
   }
 }
 
-function getMarkerCode(category) {
-  const codeMap = {
-    food: 'F',
-    spot: 'P',
-    shopping: 'S',
-    traffic: 'T',
-    medical: 'M',
-    education: 'E',
-    other: 'O'
-  };
-
-  return codeMap[category] || 'O';
-}
-
-function getMarkerSize(isActive = false) {
-  return isActive
-    ? { width: 36, height: 46 }
-    : { width: 32, height: 42 };
-}
-
-function buildMarkerIcon(loc, isActive = false) {
-  const categoryColor = CATEGORIES[loc.category]?.color || '#1d4ed8';
-  const badgeText = getMarkerCode(loc.category);
-  const { width, height } = getMarkerSize(isActive);
-  const xScale = width / 44;
-  const yScale = height / 54;
-  const scaleRadius = Math.min(xScale, yScale);
-  const shadowShift = isActive ? 1.6 : 1.4;
-  const outerStroke = isActive ? '#102c7d' : '#ffffff';
-  const outerStrokeWidth = isActive ? 2.2 : 1.8;
-  const badgeStroke = isActive ? '#dbeafe' : '#e2e8f0';
-  const badgeStrokeWidth = isActive ? 1.3 : 1.1;
-  const shadowOpacity = isActive ? 0.18 : 0.12;
-  const centerX = (value) => Number((value * xScale).toFixed(2));
-  const centerY = (value, shift = 0) => Number((value * yScale + shift).toFixed(2));
-  const radius = (value) => Number((value * scaleRadius).toFixed(2));
-  const pinPath = (shift = 0) => `
-    M${centerX(22)} ${centerY(49, shift)}
-    C${centerX(22)} ${centerY(49, shift)} ${centerX(14.4)} ${centerY(40.97, shift)} ${centerX(11.69)} ${centerY(37.93, shift)}
-    C${centerX(9.35)} ${centerY(35.31, shift)} ${centerX(8)} ${centerY(32.33, shift)} ${centerX(8)} ${centerY(28.54, shift)}
-    C${centerX(8)} ${centerY(17.79, shift)} ${centerX(14.27)} ${centerY(9, shift)} ${centerX(22)} ${centerY(9, shift)}
-    C${centerX(29.73)} ${centerY(9, shift)} ${centerX(36)} ${centerY(17.79, shift)} ${centerX(36)} ${centerY(28.54, shift)}
-    C${centerX(36)} ${centerY(32.33, shift)} ${centerX(34.65)} ${centerY(35.31, shift)} ${centerX(32.31)} ${centerY(37.93, shift)}
-    C${centerX(29.6)} ${centerY(40.97, shift)} ${centerX(22)} ${centerY(49, shift)} ${centerX(22)} ${centerY(49, shift)}
-    Z
-  `.replace(/\s+/g, ' ').trim();
-  const markerSvg = `
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" aria-hidden="true">
-      <path d="${pinPath(shadowShift)}" fill="#0f172a" fill-opacity="${shadowOpacity}"/>
-      <path d="${pinPath()}" fill="${categoryColor}" stroke="${outerStroke}" stroke-width="${outerStrokeWidth}" stroke-linejoin="round"/>
-      <circle cx="${centerX(22)}" cy="${centerY(26.8)}" r="${radius(isActive ? 8.4 : 7.6)}" fill="white" stroke="${badgeStroke}" stroke-width="${badgeStrokeWidth}"/>
-      <text x="${centerX(22)}" y="${centerY(29.95)}" text-anchor="middle" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="${isActive ? 10 : 8.8}" font-weight="700" letter-spacing="0.01em" fill="${categoryColor}">${badgeText}</text>
-    </svg>
-  `;
-  const encodedSvg = encodeURIComponent(markerSvg).replace(/'/g, '%27').replace(/"/g, '%22');
-
-  return new AMap.Icon({
-    size: new AMap.Size(width, height),
-    imageSize: new AMap.Size(width, height),
-    imageUrl: `data:image/svg+xml,${encodedSvg}`
-  });
-}
-
 function renderLocationsList() {
   updateStats();
   const filteredLocations = getFilteredLocations();
@@ -1365,36 +1316,67 @@ function renderLocationsList() {
 }
 
 function renderMarkers() {
-  markers.forEach((marker) => marker.setMap(null));
+  markers.forEach((marker) => marker.element.remove());
   markers = [];
   markerMap = new Map();
+
+  if (!markerLayer) {
+    initMarkerLayer();
+  }
+
+  if (!markerLayer) return;
 
   getFilteredLocations().forEach((loc) => {
     if (!hasCoordinates(loc)) return;
     const isActive = activeLocationId === loc.id;
-    const { width, height } = getMarkerSize(isActive);
+    const category = CATEGORIES[loc.category] || CATEGORIES.other;
 
-    const marker = new AMap.Marker({
-      position: [Number(loc.longitude), Number(loc.latitude)],
-      icon: buildMarkerIcon(loc, isActive),
-      offset: new AMap.Pixel(-Math.round(width / 2), -height),
-      title: loc.name,
-      zIndex: isActive ? 320 : 220,
-      map
-    });
+    const markerEl = document.createElement('button');
+    markerEl.type = 'button';
+    markerEl.className = 'map-screen-marker' + (isActive ? ' is-active' : '');
+    markerEl.style.setProperty('--marker-color', category.color);
+    markerEl.title = loc.name;
+    markerEl.setAttribute('aria-label', `查看地点详情 ${loc.name}`);
+    markerEl.innerHTML = `<span>${escapeHtml(getCategoryLabel(loc.category).slice(0, 1))}</span>`;
 
-    marker.on('click', () => {
+    markerEl.addEventListener('click', () => {
       openDetailDrawer(loc.id);
     });
 
-    if (isActive && typeof marker.setTop === 'function') {
-      marker.setTop(true);
-    }
+    markerLayer.appendChild(markerEl);
 
+    const marker = { id: loc.id, loc, element: markerEl };
     markers.push(marker);
     markerMap.set(loc.id, marker);
   });
+
+  updateMarkerLayerPositions();
   refreshViewportState(true);
+}
+
+function updateMarkerLayerPositions() {
+  if (!map || markers.length === 0 || typeof map.lngLatToContainer !== 'function') return;
+
+  if (markerLayer && markerLayer.parentNode) {
+    markerLayer.parentNode.appendChild(markerLayer);
+  }
+
+  markers.forEach((marker) => {
+    const point = map.lngLatToContainer([
+      Number(marker.loc.longitude),
+      Number(marker.loc.latitude)
+    ]);
+
+    const x = point && Number(point.x);
+    const y = point && Number(point.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      marker.element.hidden = true;
+      return;
+    }
+
+    marker.element.hidden = false;
+    marker.element.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -100%)`;
+  });
 }
 
 function syncDetailDrawer() {
