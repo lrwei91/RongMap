@@ -72,6 +72,7 @@ let geolocationServicePromise = null;
 let lastViewportWidth = window.innerWidth;
 let lastIsMobileLayout = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
 let lastOrientation = window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait';
+let zoomDirection = 'in'; // toggle between 'in' and 'out'
 
 function initMap(callback) {
   // 延迟创建地图，确保 PC 模式下 CSS grid 布局已完全稳定
@@ -225,6 +226,8 @@ function initUI() {
     mobileAddCloseBtn: document.getElementById('mobileAddCloseBtn'),
     mobileListCloseBtn: document.getElementById('mobileListCloseBtn'),
     mobileExportBtn: document.getElementById('mobileExportBtn'),
+    mobileZoomBtn: document.getElementById('mobileZoomBtn'),
+    mobileZoomIcon: document.getElementById('mobileZoomIcon'),
     toast: document.getElementById('toast'),
     searchSuggestions: document.getElementById('searchSuggestions'),
     locateMeBtn: document.getElementById('locateMeBtn'),
@@ -2081,6 +2084,24 @@ function bindEvents() {
   ui.mobileAddCloseBtn.addEventListener('click', () => closeMobileAddSheet());
   ui.mobileListCloseBtn.addEventListener('click', () => closeMobileListSheet());
   ui.mobileExportBtn.addEventListener('click', handleExportDialog);
+
+  // 移动端地图缩放按钮
+  if (ui.mobileZoomBtn) {
+    ui.mobileZoomBtn.addEventListener('click', () => {
+      if (!map) return;
+      const center = map.getCenter();
+      if (zoomDirection === 'in') {
+        map.zoomIn();
+        zoomDirection = 'out';
+        if (ui.mobileZoomIcon) ui.mobileZoomIcon.textContent = '－';
+      } else {
+        map.zoomOut();
+        zoomDirection = 'in';
+        if (ui.mobileZoomIcon) ui.mobileZoomIcon.textContent = '＋';
+      }
+      map.setCenter(center);
+    });
+  }
 
   [ui.mobileAddSheet, ui.mobileListSheet].forEach((sheet) => {
     sheet.addEventListener('click', (event) => {
