@@ -46,7 +46,6 @@ const SOURCE_TYPES = {
 let map = null;
 let markers = [];
 let markerMap = new Map();
-let markerLayer = null;
 let locations = [];
 let activeLocationId = null;
 let activeDetailLocationId = null;
@@ -75,22 +74,27 @@ let lastIsMobileLayout = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`
 let lastOrientation = window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait';
 
 function initMap(callback) {
-  map = new AMap.Map('map', {
-    zoom: 12,
-    center: FUZHOU_CENTER,
-    viewMode: '2D',
-    zoomControl: true,
-    scale: true
-  });
-
-  initMarkerLayer();
-  initSearchServices();
-  initGeolocationService();
-  bindMapEvents();
-
+  // 延迟创建地图，确保 PC 模式下 CSS grid 布局已完全稳定
   setTimeout(() => {
-    if (callback) callback();
-  }, 100);
+    map = new AMap.Map('map', {
+      zoom: 12,
+      center: FUZHOU_CENTER,
+      viewMode: '2D',
+      resizeEnable: true,
+      zoomControl: true,
+      scale: true
+    });
+
+    initSearchServices();
+    initGeolocationService();
+    bindMapEvents();
+    triggerMapResize();
+
+    setTimeout(() => {
+      triggerMapResize();
+      if (callback) callback();
+    }, 100);
+  }, 500);
 }
 
 function initSearchServices() {
@@ -195,18 +199,6 @@ function bindMapEvents() {
 
   map.on('moveend', () => refreshViewportState());
   map.on('zoomend', () => refreshViewportState());
-  map.on('mapmove', () => updateMarkerLayerPositions());
-  map.on('zoomchange', () => updateMarkerLayerPositions());
-}
-
-function initMarkerLayer() {
-  const mapContainer = document.getElementById('map');
-  const markerHost = mapContainer && mapContainer.closest('.map-stage');
-  if (!markerHost) return;
-
-  markerLayer = document.createElement('div');
-  markerLayer.className = 'map-marker-layer';
-  markerHost.appendChild(markerLayer);
 }
 
 function initUI() {
@@ -419,6 +411,7 @@ function triggerMapResize() {
 
   window.requestAnimationFrame(() => {
     map.resize();
+    refreshViewportState(true);
   });
 }
 
@@ -1040,6 +1033,29 @@ function getCategoryLabel(category) {
   return CATEGORIES[category].label;
 }
 
+function createMarkerIcon(category, isActive) {
+  const color = category.color || CATEGORIES.other.color;
+  const label = escapeHtml((category.label || CATEGORIES.other.label).slice(0, 1));
+  const stroke = isActive ? '#dbeafe' : '#ffffff';
+  const shadow = isActive ? '#1d4ed833' : '#0f172a33';
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44">
+      <filter id="shadow" x="-40%" y="-25%" width="180%" height="160%">
+        <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="${shadow}"/>
+      </filter>
+      <path filter="url(#shadow)" d="M17 2C8.7 2 2 8.7 2 17c0 10.8 15 25 15 25s15-14.2 15-25C32 8.7 25.3 2 17 2Z" fill="${color}" stroke="${stroke}" stroke-width="3"/>
+      <circle cx="17" cy="17" r="9" fill="#fff"/>
+      <text x="17" y="20.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="${color}">${label}</text>
+    </svg>
+  `.trim();
+
+  return new AMap.Icon({
+    size: new AMap.Size(34, 44),
+    image: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    imageSize: new AMap.Size(34, 44)
+  });
+}
+
 function getLocationSourceType(loc) {
   return loc && loc.sourceType ? loc.sourceType : 'manual';
 }
@@ -1316,67 +1332,36 @@ function renderLocationsList() {
 }
 
 function renderMarkers() {
-  markers.forEach((marker) => marker.element.remove());
+  markers.forEach((marker) => marker.instance.setMap(null));
   markers = [];
   markerMap = new Map();
 
-  if (!markerLayer) {
-    initMarkerLayer();
-  }
-
-  if (!markerLayer) return;
+  if (!map || !window.AMap || !AMap.Marker || !AMap.Icon || !AMap.Size || !AMap.Pixel) return;
 
   getFilteredLocations().forEach((loc) => {
     if (!hasCoordinates(loc)) return;
     const isActive = activeLocationId === loc.id;
     const category = CATEGORIES[loc.category] || CATEGORIES.other;
 
-    const markerEl = document.createElement('button');
-    markerEl.type = 'button';
-    markerEl.className = 'map-screen-marker' + (isActive ? ' is-active' : '');
-    markerEl.style.setProperty('--marker-color', category.color);
-    markerEl.title = loc.name;
-    markerEl.setAttribute('aria-label', `查看地点详情 ${loc.name}`);
-    markerEl.innerHTML = `<span>${escapeHtml(getCategoryLabel(loc.category).slice(0, 1))}</span>`;
+    const markerInstance = new AMap.Marker({
+      position: [Number(loc.longitude), Number(loc.latitude)],
+      icon: createMarkerIcon(category, isActive),
+      anchor: 'bottom-center',
+      zIndex: isActive ? 120 : 100,
+      title: loc.name,
+      map
+    });
 
-    markerEl.addEventListener('click', () => {
+    markerInstance.on('click', () => {
       openDetailDrawer(loc.id);
     });
 
-    markerLayer.appendChild(markerEl);
-
-    const marker = { id: loc.id, loc, element: markerEl };
+    const marker = { id: loc.id, loc, instance: markerInstance };
     markers.push(marker);
     markerMap.set(loc.id, marker);
   });
 
-  updateMarkerLayerPositions();
   refreshViewportState(true);
-}
-
-function updateMarkerLayerPositions() {
-  if (!map || markers.length === 0 || typeof map.lngLatToContainer !== 'function') return;
-
-  if (markerLayer && markerLayer.parentNode) {
-    markerLayer.parentNode.appendChild(markerLayer);
-  }
-
-  markers.forEach((marker) => {
-    const point = map.lngLatToContainer([
-      Number(marker.loc.longitude),
-      Number(marker.loc.latitude)
-    ]);
-
-    const x = point && Number(point.x);
-    const y = point && Number(point.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      marker.element.hidden = true;
-      return;
-    }
-
-    marker.element.hidden = false;
-    marker.element.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -100%)`;
-  });
 }
 
 function syncDetailDrawer() {

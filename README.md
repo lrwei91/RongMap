@@ -1,50 +1,6 @@
 # RongMap - 福州地图标记应用
 
-一个基于高德地图的地点标记与分享应用，支持手动添加、AI 对话录入、批量导入等方式记录地点。
-
-## 快速开始
-
-### 1. 获取高德地图 API Key
-
-访问 [高德开放平台](https://console.amap.com/) 注册并创建应用：
-
-1. **Web 端 (JS API)** — 用于前端地图展示
-2. **Web 服务** — 用于地理编码 / POI 搜索
-
-### 2. 配置 API Key
-
-编辑 `public/app.js`：
-
-```javascript
-const AMAP_CONFIG = {
-  webApiKey: '你的 WEB 端 API Key',
-  webServiceKey: '你的 WEB 服务 API Key',
-  securityCode: '你的安全密钥'
-};
-```
-
-同时编辑 `public/index.html`，替换 `YOUR_SECURITY_CODE` 和 `YOUR_WEB_API_KEY`。
-
-### 3. 启动服务
-
-```bash
-npm start
-```
-
-访问 http://localhost:3000
-
-## 使用方法
-
-- **单个添加**：输入地址（如 `群哥水煮蛙 仓山万达店`），点击添加
-- **批量添加**：粘贴多行地址，每行一个，点击批量添加
-- **AI 录入**：通过 OpenClaw 对话添加地点（见下方 API 文档）
-- **地图筛选**：按分类（餐饮/景点/购物/交通等）过滤标记点
-- **分享**：生成地点分享链接
-
-## 数据存储
-
-- 本地开发：`data/locations.json`
-- 线上部署：Vercel KV（分布式存储，多人共享）
+一个基于高德地图的地点标记与分享应用，支持手动添加、AI 对话录入等方式记录地点。所有数据存储在 Vercel KV 云端。
 
 ## Vercel 部署
 
@@ -69,7 +25,7 @@ vercel --prod   # 生产环境部署
 | `AMAP_WEB_KEY` | 高德 Web 端 API Key（可选） |
 | `AMAP_WEB_SECURITY_CODE` | 高德安全密钥（可选） |
 | `AMAP_WEB_SERVICE_KEY` | 高德 Web 服务 API Key |
-| `OPENCLAW_SHARED_SECRET` | OpenClaw 鉴权密钥 |
+| `OPENCLAW_SHARED_SECRET` | API 鉴权密钥 |
 
 KV 相关变量由 Vercel 自动创建，无需手动配置。
 
@@ -81,19 +37,19 @@ npm run backup:kv
 
 将云端 `locations` 数据同步到 `data/backups/`。
 
-## OpenClaw API
+## API
 
 ### 地点录入
 
 ```
 POST /api/openclaw/locations/intake
-Authorization: Bearer <OPENCLAW_SHARED_SECRET>
+Authorization: Bearer <SECRET>
 ```
 
-请求体支持：
+请求体：
 - `query` — 简短地点词
 - `inputType` — `text` / `map_location` / `douyin_url` / `video`
-- `category` — 地点分类（支持中文别名）
+- `category` — 地点分类
 - `reason` — 添加原因
 
 响应状态：`saved` / `needs_confirmation` / `duplicate` / `not_found`
@@ -102,10 +58,18 @@ Authorization: Bearer <OPENCLAW_SHARED_SECRET>
 
 ```
 POST /api/openclaw/locations/confirm
-Authorization: Bearer <OPENCLAW_SHARED_SECRET>
+Authorization: Bearer <SECRET>
 ```
 
 用于多候选场景下的二次确认。
+
+### 查询地点
+
+```
+GET /api/locations
+```
+
+返回所有已收藏地点。
 
 ### 去重规则
 
@@ -127,8 +91,6 @@ RongMap/
 │   ├── app.js
 │   └── style.css
 ├── scripts/                 # 运维脚本
-├── data/                    # 本地数据（线上用 KV）
-├── server.js                # Express 本地服务
 ├── vercel.json              # Vercel 配置
 └── package.json
 ```

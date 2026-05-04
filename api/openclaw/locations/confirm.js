@@ -5,21 +5,7 @@
  * 用于多候选场景下的二次确认后落库
  */
 
-// 自动检测环境：有 KV 配置用 KV，否则用本地文件
-let storage;
-if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-  try {
-    storage = require('../../../lib/locations-storage');
-    console.log('[Storage] 使用 Vercel KV');
-  } catch (err) {
-    storage = require('../../../lib/locations-storage-local');
-    console.log('[Storage] 使用本地文件存储');
-  }
-} else {
-  storage = require('../../../lib/locations-storage-local');
-  console.log('[Storage] 使用本地文件存储（未配置 KV）');
-}
-
+const storage = require('../../../lib/locations-storage');
 const { createLocation } = storage;
 
 const OPENCLAW_SHARED_SECRET = process.env.OPENCLAW_SHARED_SECRET;

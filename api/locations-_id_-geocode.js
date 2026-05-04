@@ -1,26 +1,5 @@
-const { kv } = require('@vercel/kv');
+const storage = require('../lib/locations-storage');
 const { applyLocationUpdates } = require('../lib/location-record');
-
-const LOCATIONS_KEY = 'locations';
-
-async function getLocations() {
-  try {
-    const data = await kv.get(LOCATIONS_KEY);
-    return data || [];
-  } catch (err) {
-    console.error('getLocations error:', err.message);
-    throw err;
-  }
-}
-
-async function saveLocations(locations) {
-  try {
-    await kv.set(LOCATIONS_KEY, locations);
-  } catch (err) {
-    console.error('saveLocations error:', err.message);
-    throw err;
-  }
-}
 
 module.exports = async function handler(req, res) {
   try {
@@ -28,7 +7,7 @@ module.exports = async function handler(req, res) {
       const { id } = req.query;
       const { latitude, longitude } = req.body;
 
-      const locations = await getLocations();
+      const locations = await storage.getLocations();
       const location = locations.find(loc => loc.id === id);
 
       if (!location) {
@@ -37,7 +16,7 @@ module.exports = async function handler(req, res) {
 
       const index = locations.findIndex(loc => loc.id === id);
       locations[index] = applyLocationUpdates(location, { latitude, longitude });
-      await saveLocations(locations);
+      await storage.saveLocations(locations);
 
       return res.status(200).json(locations[index]);
     }
