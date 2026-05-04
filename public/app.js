@@ -13,6 +13,12 @@ const SEARCH_LIMIT = 8;
 const FUZHOU_ADCODE_PREFIX = '3501';
 const MOBILE_BREAKPOINT = 720;
 const FOCUS_ZOOM = 17;
+const MOBILE_ZOOM_ANIMATION_MS = 360;
+const SHARE_POSTER_WIDTH = 900;
+const SHARE_POSTER_HEIGHT = 1400;
+const SHARE_MAP_HEIGHT = 520;
+const SHARE_QR_VERSION = 10;
+const SHARE_QR_SIZE = 4 * SHARE_QR_VERSION + 17;
 
 // 分类配置
 const CATEGORIES = {
@@ -58,6 +64,7 @@ let isAddSheetOpen = false;
 let isListSheetOpen = false;
 let activeCategoryFilter = 'all';
 let activeSearchKeyword = '';
+let currentSharePoster = null;
 
 let ui = {};
 
@@ -72,7 +79,6 @@ let geolocationServicePromise = null;
 let lastViewportWidth = window.innerWidth;
 let lastIsMobileLayout = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
 let lastOrientation = window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait';
-let zoomDirection = 'in'; // toggle between 'in' and 'out'
 
 function initMap(callback) {
   // 延迟创建地图，确保 PC 模式下 CSS grid 布局已完全稳定
@@ -199,7 +205,10 @@ function bindMapEvents() {
   if (!map || typeof map.on !== 'function') return;
 
   map.on('moveend', () => refreshViewportState());
-  map.on('zoomend', () => refreshViewportState());
+  map.on('zoomend', () => {
+    refreshViewportState();
+    updateMobileZoomControls();
+  });
 }
 
 function initUI() {
@@ -226,8 +235,8 @@ function initUI() {
     mobileAddCloseBtn: document.getElementById('mobileAddCloseBtn'),
     mobileListCloseBtn: document.getElementById('mobileListCloseBtn'),
     mobileExportBtn: document.getElementById('mobileExportBtn'),
-    mobileZoomBtn: document.getElementById('mobileZoomBtn'),
-    mobileZoomIcon: document.getElementById('mobileZoomIcon'),
+    mobileZoomInBtn: document.getElementById('mobileZoomInBtn'),
+    mobileZoomOutBtn: document.getElementById('mobileZoomOutBtn'),
     toast: document.getElementById('toast'),
     searchSuggestions: document.getElementById('searchSuggestions'),
     locateMeBtn: document.getElementById('locateMeBtn'),
@@ -248,6 +257,11 @@ function initUI() {
     detailEditBtn: document.getElementById('detailEditBtn'),
     detailDeleteBtn: document.getElementById('detailDeleteBtn'),
     detailCloseBtn: document.getElementById('detailCloseBtn'),
+    sharePosterDialog: document.getElementById('sharePosterDialog'),
+    sharePosterPreview: document.getElementById('sharePosterPreview'),
+    sharePosterCloseBtn: document.getElementById('sharePosterCloseBtn'),
+    sharePosterCopyBtn: document.getElementById('sharePosterCopyBtn'),
+    sharePosterDoneBtn: document.getElementById('sharePosterDoneBtn'),
     // 编辑对话框
     editDialog: document.getElementById('editDialog'),
     editLocationId: document.getElementById('editLocationId'),
@@ -345,6 +359,10 @@ function buildLocationSharePayload(loc) {
   };
 }
 
+function isWechatBrowser() {
+  return /MicroMessenger/i.test(navigator.userAgent || '');
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
@@ -370,42 +388,619 @@ async function copyTextToClipboard(text) {
   }
 }
 
+function loadImageFromBlob(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('地图图片加载失败'));
+    };
+    image.src = url;
+  });
+}
+
+async function loadShareMapImage(loc) {
+  const query = new URLSearchParams({
+    latitude: String(Number(loc.latitude)),
+    longitude: String(Number(loc.longitude)),
+    name: loc.name || '地点'
+  });
+  const response = await fetch(`/api/share-map?${query.toString()}`);
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(errorText || '地图图片生成失败');
+  }
+
+  return loadImageFromBlob(await response.blob());
+}
+
+async function loadSharePoiInfo(loc) {
+  const query = new URLSearchParams({
+    latitude: String(Number(loc.latitude)),
+    longitude: String(Number(loc.longitude)),
+    name: loc.name || ''
+  });
+
+  if (loc.sourceId) {
+    query.set('sourceId', loc.sourceId);
+  }
+
+  const response = await fetch(`/api/share-poi?${query.toString()}`);
+  if (!response.ok) {
+    throw new Error('地点详情补充失败');
+  }
+
+  const result = await response.json();
+  return result && result.poi ? result.poi : null;
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function fillWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+  const chars = String(text || '').split('');
+  const lines = [];
+  let line = '';
+
+  chars.forEach((char) => {
+    const nextLine = line + char;
+    if (line && ctx.measureText(nextLine).width > maxWidth) {
+      lines.push(line);
+      line = char;
+      return;
+    }
+
+    line = nextLine;
+  });
+
+  if (line) {
+    lines.push(line);
+  }
+
+  const visibleLines = lines.slice(0, maxLines);
+  if (lines.length > maxLines && visibleLines.length > 0) {
+    let lastLine = visibleLines[visibleLines.length - 1];
+    while (lastLine.length > 0 && ctx.measureText(`${lastLine}...`).width > maxWidth) {
+      lastLine = lastLine.slice(0, -1);
+    }
+    visibleLines[visibleLines.length - 1] = `${lastLine}...`;
+  }
+
+  visibleLines.forEach((item, index) => {
+    ctx.fillText(item, x, y + index * lineHeight);
+  });
+
+  return y + visibleLines.length * lineHeight;
+}
+
+function drawMapFallback(ctx, loc) {
+  const gradient = ctx.createLinearGradient(0, 0, SHARE_POSTER_WIDTH, SHARE_MAP_HEIGHT);
+  gradient.addColorStop(0, '#dbeafe');
+  gradient.addColorStop(1, '#dcfce7');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, SHARE_POSTER_WIDTH, SHARE_MAP_HEIGHT);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+  ctx.lineWidth = 12;
+  for (let i = -1; i < 6; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(-80, 120 + i * 86);
+    ctx.bezierCurveTo(190, 48 + i * 70, 340, 210 + i * 80, 600, 130 + i * 74);
+    ctx.bezierCurveTo(720, 92 + i * 70, 820, 150 + i * 74, 980, 86 + i * 70);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(SHARE_POSTER_WIDTH / 2, SHARE_MAP_HEIGHT / 2 - 18, 28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(SHARE_POSTER_WIDTH / 2, SHARE_MAP_HEIGHT / 2 + 50);
+  ctx.lineTo(SHARE_POSTER_WIDTH / 2 - 18, SHARE_MAP_HEIGHT / 2 + 10);
+  ctx.lineTo(SHARE_POSTER_WIDTH / 2 + 18, SHARE_MAP_HEIGHT / 2 + 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 18px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText((loc.name || '地点').slice(0, 1), SHARE_POSTER_WIDTH / 2, SHARE_MAP_HEIGHT / 2 - 10);
+  ctx.textAlign = 'left';
+}
+
+function createQrCodeMatrix(text) {
+  const bytes = Array.from(new TextEncoder().encode(text));
+  const maxDataBytes = 271;
+  if (bytes.length > maxDataBytes) {
+    throw new Error('分享链接过长，无法生成二维码');
+  }
+
+  const dataCodewords = 274;
+  const blockSizes = [68, 68, 69, 69];
+  const ecCodewordsPerBlock = 18;
+  const bits = [];
+  const appendBits = (value, length) => {
+    for (let i = length - 1; i >= 0; i -= 1) {
+      bits.push((value >>> i) & 1);
+    }
+  };
+
+  appendBits(0x4, 4);
+  appendBits(bytes.length, 16);
+  bytes.forEach((byte) => appendBits(byte, 8));
+  appendBits(0, Math.min(4, dataCodewords * 8 - bits.length));
+  while (bits.length % 8 !== 0) bits.push(0);
+
+  const data = [];
+  for (let i = 0; i < bits.length; i += 8) {
+    data.push(bits.slice(i, i + 8).reduce((value, bit) => (value << 1) | bit, 0));
+  }
+
+  for (let pad = 0xec; data.length < dataCodewords; pad ^= 0xfd) {
+    data.push(pad);
+  }
+
+  const gfMul = (x, y) => {
+    let z = 0;
+    for (let i = 7; i >= 0; i -= 1) {
+      z = (z << 1) ^ ((z >>> 7) * 0x11d);
+      z ^= ((y >>> i) & 1) * x;
+    }
+    return z & 0xff;
+  };
+
+  const rsDivisor = (degree) => {
+    const result = Array(degree).fill(0);
+    result[degree - 1] = 1;
+    let root = 1;
+    for (let i = 0; i < degree; i += 1) {
+      for (let j = 0; j < degree; j += 1) {
+        result[j] = gfMul(result[j], root);
+        if (j + 1 < degree) result[j] ^= result[j + 1];
+      }
+      root = gfMul(root, 2);
+    }
+    return result;
+  };
+
+  const rsRemainder = (block, divisor) => {
+    const result = Array(divisor.length).fill(0);
+    block.forEach((byte) => {
+      const factor = byte ^ result.shift();
+      result.push(0);
+      divisor.forEach((coef, index) => {
+        result[index] ^= gfMul(coef, factor);
+      });
+    });
+    return result;
+  };
+
+  const blocks = [];
+  let offset = 0;
+  const divisor = rsDivisor(ecCodewordsPerBlock);
+  blockSizes.forEach((size) => {
+    const block = data.slice(offset, offset + size);
+    blocks.push({ data: block, ec: rsRemainder(block, divisor) });
+    offset += size;
+  });
+
+  const codewords = [];
+  const maxBlockSize = Math.max(...blockSizes);
+  for (let i = 0; i < maxBlockSize; i += 1) {
+    blocks.forEach((block) => {
+      if (i < block.data.length) codewords.push(block.data[i]);
+    });
+  }
+  for (let i = 0; i < ecCodewordsPerBlock; i += 1) {
+    blocks.forEach((block) => codewords.push(block.ec[i]));
+  }
+
+  const size = SHARE_QR_SIZE;
+  const modules = Array.from({ length: size }, () => Array(size).fill(false));
+  const reserved = Array.from({ length: size }, () => Array(size).fill(false));
+  const setModule = (x, y, dark, isReserved = true) => {
+    if (x < 0 || y < 0 || x >= size || y >= size) return;
+    modules[y][x] = Boolean(dark);
+    if (isReserved) reserved[y][x] = true;
+  };
+
+  const drawFinder = (left, top) => {
+    for (let y = -1; y <= 7; y += 1) {
+      for (let x = -1; x <= 7; x += 1) {
+        const xx = left + x;
+        const yy = top + y;
+        const inFinder = x >= 0 && x <= 6 && y >= 0 && y <= 6;
+        const dark = inFinder && (x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4));
+        setModule(xx, yy, dark);
+      }
+    }
+  };
+
+  const drawAlignment = (centerX, centerY) => {
+    for (let y = -2; y <= 2; y += 1) {
+      for (let x = -2; x <= 2; x += 1) {
+        setModule(centerX + x, centerY + y, Math.max(Math.abs(x), Math.abs(y)) !== 1);
+      }
+    }
+  };
+
+  drawFinder(0, 0);
+  drawFinder(size - 7, 0);
+  drawFinder(0, size - 7);
+  [6, 28, 50].forEach((y) => {
+    [6, 28, 50].forEach((x) => {
+      if ((x === 6 && y === 6) || (x === 6 && y === 50) || (x === 50 && y === 6)) return;
+      drawAlignment(x, y);
+    });
+  });
+
+  for (let i = 8; i < size - 8; i += 1) {
+    setModule(i, 6, i % 2 === 0);
+    setModule(6, i, i % 2 === 0);
+  }
+  setModule(8, 4 * SHARE_QR_VERSION + 9, true);
+
+  for (let i = 0; i <= 8; i += 1) {
+    if (i !== 6) {
+      reserved[8][i] = true;
+      reserved[i][8] = true;
+    }
+  }
+  for (let i = 0; i < 8; i += 1) {
+    reserved[8][size - 1 - i] = true;
+    reserved[size - 1 - i][8] = true;
+  }
+  for (let i = 0; i < 6; i += 1) {
+    for (let j = 0; j < 3; j += 1) {
+      reserved[i][size - 11 + j] = true;
+      reserved[size - 11 + j][i] = true;
+    }
+  }
+
+  const dataBits = codewords.flatMap((byte) => {
+    const result = [];
+    for (let i = 7; i >= 0; i -= 1) result.push((byte >>> i) & 1);
+    return result;
+  });
+  let bitIndex = 0;
+  let upward = true;
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right -= 1;
+    for (let vert = 0; vert < size; vert += 1) {
+      const y = upward ? size - 1 - vert : vert;
+      for (let xOffset = 0; xOffset < 2; xOffset += 1) {
+        const x = right - xOffset;
+        if (!reserved[y][x]) {
+          modules[y][x] = bitIndex < dataBits.length ? Boolean(dataBits[bitIndex]) : false;
+          bitIndex += 1;
+        }
+      }
+    }
+    upward = !upward;
+  }
+
+  const mask = 1;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (!reserved[y][x] && y % 2 === 0) {
+        modules[y][x] = !modules[y][x];
+      }
+    }
+  }
+
+  const drawFormatBits = () => {
+    const errorCorrectionBits = 1;
+    let dataValue = (errorCorrectionBits << 3) | mask;
+    let remainder = dataValue << 10;
+    for (let i = 14; i >= 10; i -= 1) {
+      if (((remainder >>> i) & 1) !== 0) {
+        remainder ^= 0x537 << (i - 10);
+      }
+    }
+    const bitsValue = ((dataValue << 10) | remainder) ^ 0x5412;
+    const getBit = (i) => ((bitsValue >>> i) & 1) !== 0;
+
+    for (let i = 0; i <= 5; i += 1) setModule(8, i, getBit(i));
+    setModule(8, 7, getBit(6));
+    setModule(8, 8, getBit(7));
+    setModule(7, 8, getBit(8));
+    for (let i = 9; i < 15; i += 1) setModule(14 - i, 8, getBit(i));
+    for (let i = 0; i < 8; i += 1) setModule(size - 1 - i, 8, getBit(i));
+    for (let i = 8; i < 15; i += 1) setModule(8, size - 15 + i, getBit(i));
+  };
+
+  const drawVersionBits = () => {
+    let remainder = SHARE_QR_VERSION << 12;
+    for (let i = 17; i >= 12; i -= 1) {
+      if (((remainder >>> i) & 1) !== 0) {
+        remainder ^= 0x1f25 << (i - 12);
+      }
+    }
+    const bitsValue = (SHARE_QR_VERSION << 12) | remainder;
+    for (let i = 0; i < 18; i += 1) {
+      const bit = ((bitsValue >>> i) & 1) !== 0;
+      setModule(size - 11 + (i % 3), Math.floor(i / 3), bit);
+      setModule(Math.floor(i / 3), size - 11 + (i % 3), bit);
+    }
+  };
+
+  drawFormatBits();
+  drawVersionBits();
+  return modules;
+}
+
+function drawQrCode(ctx, text, x, y, size) {
+  const modules = createQrCodeMatrix(text);
+  const quietZone = 4;
+  const count = modules.length + quietZone * 2;
+  const moduleSize = Math.floor(size / count);
+  const actualSize = moduleSize * count;
+  const offset = Math.floor((size - actualSize) / 2);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = '#111827';
+  modules.forEach((row, rowIndex) => {
+    row.forEach((dark, colIndex) => {
+      if (!dark) return;
+      ctx.fillRect(
+        x + offset + (colIndex + quietZone) * moduleSize,
+        y + offset + (rowIndex + quietZone) * moduleSize,
+        moduleSize,
+        moduleSize
+      );
+    });
+  });
+}
+
+async function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('海报图片生成失败'));
+        return;
+      }
+      resolve(blob);
+    }, 'image/png', 0.95);
+  });
+}
+
+function formatSharePoiRows(loc, poiInfo) {
+  const rows = [];
+  const tel = normalizeOptionalText(poiInfo && poiInfo.tel);
+  const businessArea = normalizeOptionalText(poiInfo && poiInfo.businessArea);
+  const openingHours = normalizeOptionalText(poiInfo && poiInfo.openingHours);
+  const rating = normalizeOptionalText(poiInfo && poiInfo.rating);
+  const cost = normalizeOptionalText(poiInfo && poiInfo.cost);
+  const ratingCost = [rating ? `${rating} 分` : '', cost ? `人均 ${cost.startsWith('¥') ? cost : `¥${cost}`}` : '']
+    .filter(Boolean)
+    .join(' · ');
+
+  if (tel) rows.push({ label: '电话', value: tel });
+  if (openingHours) rows.push({ label: '营业', value: openingHours });
+  if (ratingCost) rows.push({ label: '评分', value: ratingCost });
+  if (businessArea) rows.push({ label: '商圈', value: businessArea });
+
+  return rows.slice(0, 4);
+}
+
+function drawInfoChip(ctx, label, value, x, y, width) {
+  ctx.fillStyle = '#f8fafc';
+  drawRoundedRect(ctx, x, y, width, 72, 16);
+  ctx.fill();
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '700 17px Arial, sans-serif';
+  ctx.fillText(label, x + 18, y + 25);
+
+  ctx.fillStyle = '#334155';
+  ctx.font = '600 21px Arial, sans-serif';
+  fillWrappedText(ctx, value, x + 18, y + 57, width - 36, 25, 1);
+}
+
+function drawSharePosterInfo(ctx, loc, payload, poiInfo) {
+  const left = 58;
+  const maxWidth = SHARE_POSTER_WIDTH - left * 2;
+  let y = SHARE_MAP_HEIGHT + 74;
+  const poiRows = formatSharePoiRows(loc, poiInfo);
+
+  ctx.fillStyle = '#ffffff';
+  drawRoundedRect(ctx, 34, SHARE_MAP_HEIGHT - 56, SHARE_POSTER_WIDTH - 68, 590, 30);
+  ctx.fill();
+
+  ctx.fillStyle = '#182334';
+  ctx.font = '700 54px Arial, sans-serif';
+  y = fillWrappedText(ctx, loc.name || '地点', left, y, maxWidth, 60, 2) + 22;
+
+  ctx.fillStyle = '#5d6b7f';
+  ctx.font = '400 28px Arial, sans-serif';
+  y = fillWrappedText(ctx, loc.address || '未填写地址', left, y, maxWidth, 38, 2) + 30;
+
+  ctx.fillStyle = '#182334';
+  ctx.font = '700 26px Arial, sans-serif';
+  ctx.fillText('备注', left, y);
+  y += 40;
+
+  ctx.fillStyle = '#5d6b7f';
+  ctx.font = '400 25px Arial, sans-serif';
+  y = fillWrappedText(ctx, loc.reason || '暂无备注', left, y, maxWidth, 36, 2) + 28;
+
+  const chipGap = 18;
+  const chipWidth = (maxWidth - chipGap) / 2;
+  poiRows.forEach((row, index) => {
+    const chipX = left + (index % 2) * (chipWidth + chipGap);
+    const chipY = y + Math.floor(index / 2) * 84;
+    drawInfoChip(ctx, row.label, row.value, chipX, chipY, chipWidth);
+  });
+
+  ctx.fillStyle = '#f8fafc';
+  drawRoundedRect(ctx, 34, 1060, SHARE_POSTER_WIDTH - 68, 290, 30);
+  ctx.fill();
+
+  const qrSize = 220;
+  const qrX = 72;
+  const qrY = 1096;
+  drawQrCode(ctx, payload.url, qrX, qrY, qrSize);
+
+  ctx.fillStyle = '#182334';
+  ctx.font = '700 36px Arial, sans-serif';
+  ctx.fillText('扫码打开高德导航', 340, 1134);
+  ctx.fillStyle = '#5d6b7f';
+  ctx.font = '400 25px Arial, sans-serif';
+  fillWrappedText(ctx, '识别二维码后可直接跳转到该地点的高德导航页面。', 340, 1186, 440, 38, 3);
+}
+
+async function createSharePoster(loc, payload) {
+  const canvas = document.createElement('canvas');
+  canvas.width = SHARE_POSTER_WIDTH;
+  canvas.height = SHARE_POSTER_HEIGHT;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#edf1f5';
+  ctx.fillRect(0, 0, SHARE_POSTER_WIDTH, SHARE_POSTER_HEIGHT);
+
+  const [mapImage, poiInfo] = await Promise.all([
+    loadShareMapImage(loc).catch((err) => {
+      console.warn('静态地图加载失败，使用海报占位地图:', err);
+      return null;
+    }),
+    loadSharePoiInfo(loc).catch((err) => {
+      console.warn('地点详情补充失败，使用本地地点信息:', err);
+      return null;
+    })
+  ]);
+
+  if (mapImage) {
+    ctx.drawImage(mapImage, 0, 0, SHARE_POSTER_WIDTH, SHARE_MAP_HEIGHT);
+  } else {
+    drawMapFallback(ctx, loc);
+  }
+
+  drawSharePosterInfo(ctx, loc, payload, poiInfo);
+
+  const blob = await canvasToBlob(canvas);
+  const fileName = `${(loc.name || '地点').replace(/[\\/:*?"<>|]/g, '').slice(0, 24) || '地点'}-分享海报.png`;
+  const file = typeof File === 'function'
+    ? new File([blob], fileName, { type: 'image/png' })
+    : null;
+
+  return {
+    blob,
+    file,
+    dataUrl: canvas.toDataURL('image/png'),
+    payload
+  };
+}
+
+function openSharePosterDialog(poster) {
+  currentSharePoster = poster;
+  if (!ui.sharePosterDialog || !ui.sharePosterPreview) return;
+
+  ui.sharePosterPreview.src = poster.dataUrl;
+  ui.sharePosterDialog.classList.add('is-open');
+  ui.sharePosterDialog.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('drawer-open');
+
+  window.requestAnimationFrame(() => {
+    if (ui.sharePosterCopyBtn) {
+      ui.sharePosterCopyBtn.focus();
+    }
+  });
+}
+
+function closeSharePosterDialog() {
+  if (!ui.sharePosterDialog) return;
+
+  ui.sharePosterDialog.classList.remove('is-open');
+  ui.sharePosterDialog.setAttribute('aria-hidden', 'true');
+  if (ui.sharePosterPreview) {
+    ui.sharePosterPreview.removeAttribute('src');
+  }
+  currentSharePoster = null;
+  document.body.classList.toggle('drawer-open', Boolean(ui.detailDrawer && ui.detailDrawer.classList.contains('is-open')));
+}
+
 async function shareLocation(loc) {
   if (!loc) {
     showToast('未找到可分享的地点', 'error');
     return;
   }
 
+  if (!hasCoordinates(loc)) {
+    showToast('该地点还未完成定位，无法生成分享海报', 'error');
+    return;
+  }
+
   const payload = buildLocationSharePayload(loc);
+  setButtonBusy(ui.detailShareBtn, true, '生成中...');
 
-  if (typeof navigator.share === 'function') {
-    try {
-      const shareData = {
-        title: payload.title,
-        text: payload.nativeText
-      };
+  try {
+    const poster = await createSharePoster(loc, payload);
+    const canSharePosterFile = poster.file &&
+      typeof navigator.share === 'function' &&
+      typeof navigator.canShare === 'function' &&
+      navigator.canShare({ files: [poster.file] });
 
-      if (payload.url) {
-        shareData.url = payload.url;
-      }
-
-      await navigator.share(shareData);
-      showToast('已打开系统分享面板', 'success');
-      return;
-    } catch (err) {
-      if (err && err.name === 'AbortError') {
+    if (!isWechatBrowser() && canSharePosterFile) {
+      try {
+        await navigator.share({
+          title: payload.title,
+          text: payload.nativeText,
+          files: [poster.file]
+        });
+        showToast('已打开系统分享面板', 'success');
         return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          return;
+        }
+        console.warn('图片分享失败，打开海报预览:', err);
       }
-
-      console.warn('系统分享失败，回退到复制内容:', err);
     }
+
+    openSharePosterDialog(poster);
+    showToast(isWechatBrowser() ? '长按海报保存或转发' : '已生成分享海报', 'success');
+  } catch (err) {
+    console.warn('分享海报生成失败，回退到复制内容:', err);
+    try {
+      await copyTextToClipboard(payload.fallbackText);
+      showToast(`海报生成失败，已复制分享内容：${err.message}`, 'error');
+    } catch (copyErr) {
+      showToast(`分享失败：${copyErr.message}`, 'error');
+    }
+  } finally {
+    setButtonBusy(ui.detailShareBtn, false);
+  }
+}
+
+async function copyCurrentSharePosterLink() {
+  if (!currentSharePoster || !currentSharePoster.payload || !currentSharePoster.payload.url) {
+    showToast('没有可复制的高德链接', 'error');
+    return;
   }
 
   try {
-    await copyTextToClipboard(payload.fallbackText);
-    showToast('浏览器不支持系统分享，已复制分享内容', 'success');
+    await copyTextToClipboard(currentSharePoster.payload.url);
+    showToast('已复制高德链接', 'success');
   } catch (err) {
-    showToast(`分享失败：${err.message}`, 'error');
+    showToast(`复制失败：${err.message}`, 'error');
   }
 }
 
@@ -1275,6 +1870,54 @@ function refreshViewportState(force = false) {
   }
 }
 
+function getMapZoomLimits() {
+  if (!map || typeof map.getZooms !== 'function') {
+    return { minZoom: 3, maxZoom: 20 };
+  }
+
+  const zooms = map.getZooms();
+  const minZoom = Array.isArray(zooms) ? Number(zooms[0]) : Number(zooms?.min);
+  const maxZoom = Array.isArray(zooms) ? Number(zooms[1]) : Number(zooms?.max);
+
+  return {
+    minZoom: Number.isFinite(minZoom) ? minZoom : 3,
+    maxZoom: Number.isFinite(maxZoom) ? maxZoom : 20
+  };
+}
+
+function updateMobileZoomControls() {
+  if (!map || !ui.mobileZoomInBtn || !ui.mobileZoomOutBtn || typeof map.getZoom !== 'function') return;
+
+  const currentZoom = Number(map.getZoom());
+  const { minZoom, maxZoom } = getMapZoomLimits();
+  ui.mobileZoomInBtn.disabled = Number.isFinite(currentZoom) && currentZoom >= maxZoom - 0.01;
+  ui.mobileZoomOutBtn.disabled = Number.isFinite(currentZoom) && currentZoom <= minZoom + 0.01;
+}
+
+function zoomMobileMap(direction) {
+  if (!map) return;
+
+  const currentZoom = typeof map.getZoom === 'function' ? Number(map.getZoom()) : NaN;
+  const { minZoom, maxZoom } = getMapZoomLimits();
+  if (!Number.isFinite(currentZoom)) return;
+  if (direction === 'in' && Number.isFinite(currentZoom) && currentZoom >= maxZoom - 0.01) return;
+  if (direction === 'out' && Number.isFinite(currentZoom) && currentZoom <= minZoom + 0.01) return;
+
+  const center = map.getCenter();
+  const nextZoom = direction === 'in'
+    ? Math.min(currentZoom + 1, maxZoom)
+    : Math.max(currentZoom - 1, minZoom);
+
+  if (typeof map.setZoomAndCenter === 'function') {
+    map.setZoomAndCenter(nextZoom, center, false, MOBILE_ZOOM_ANIMATION_MS);
+  } else {
+    map.setZoom(nextZoom, false, MOBILE_ZOOM_ANIMATION_MS);
+    map.setCenter(center, false, MOBILE_ZOOM_ANIMATION_MS);
+  }
+
+  updateMobileZoomControls();
+}
+
 function renderLocationsList() {
   updateStats();
   const filteredLocations = getFilteredLocations();
@@ -1971,6 +2614,12 @@ function trapDrawerFocus(event) {
 
 function handleGlobalKeydown(event) {
   if (event.key === 'Escape') {
+    if (ui.sharePosterDialog && ui.sharePosterDialog.classList.contains('is-open')) {
+      event.preventDefault();
+      closeSharePosterDialog();
+      return;
+    }
+
     if (ui.detailDrawer.classList.contains('is-open')) {
       event.preventDefault();
       closeDetailDrawer();
@@ -2085,23 +2734,15 @@ function bindEvents() {
   ui.mobileListCloseBtn.addEventListener('click', () => closeMobileListSheet());
   ui.mobileExportBtn.addEventListener('click', handleExportDialog);
 
-  // 移动端地图缩放按钮
-  if (ui.mobileZoomBtn) {
-    ui.mobileZoomBtn.addEventListener('click', () => {
-      if (!map) return;
-      const center = map.getCenter();
-      if (zoomDirection === 'in') {
-        map.zoomIn();
-        zoomDirection = 'out';
-        if (ui.mobileZoomIcon) ui.mobileZoomIcon.textContent = '－';
-      } else {
-        map.zoomOut();
-        zoomDirection = 'in';
-        if (ui.mobileZoomIcon) ui.mobileZoomIcon.textContent = '＋';
-      }
-      map.setCenter(center);
-    });
+  if (ui.mobileZoomInBtn) {
+    ui.mobileZoomInBtn.addEventListener('click', () => zoomMobileMap('in'));
   }
+
+  if (ui.mobileZoomOutBtn) {
+    ui.mobileZoomOutBtn.addEventListener('click', () => zoomMobileMap('out'));
+  }
+
+  updateMobileZoomControls();
 
   [ui.mobileAddSheet, ui.mobileListSheet].forEach((sheet) => {
     sheet.addEventListener('click', (event) => {
@@ -2156,6 +2797,14 @@ function bindEvents() {
       closeDetailDrawer();
     }
   });
+  ui.sharePosterDialog.addEventListener('click', (event) => {
+    if (event.target.dataset.sharePosterClose === 'true' || event.target === ui.sharePosterDialog) {
+      closeSharePosterDialog();
+    }
+  });
+  ui.sharePosterCloseBtn.addEventListener('click', closeSharePosterDialog);
+  ui.sharePosterDoneBtn.addEventListener('click', closeSharePosterDialog);
+  ui.sharePosterCopyBtn.addEventListener('click', copyCurrentSharePosterLink);
   ui.detailCloseBtn.addEventListener('click', () => closeDetailDrawer());
   ui.detailFocusBtn.addEventListener('click', () => {
     if (activeDetailLocationId) {

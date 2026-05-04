@@ -752,12 +752,18 @@ button:focus-visible {
   line-height: 1.45;
 }
 
-/* Mobile zoom toggle button (bottom-right of map) */
-.mobile-zoom-btn {
+/* Mobile zoom controls (bottom-right of map) */
+.mobile-zoom-controls {
   position: fixed;
   right: 14px;
-  bottom: 100px;
+  bottom: calc(128px + env(safe-area-inset-bottom));
   z-index: 930;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-zoom-btn {
   width: 52px;
   height: 52px;
   border: 1px solid rgba(88, 111, 140, 0.18);
@@ -765,12 +771,12 @@ button:focus-visible {
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 10px 28px rgba(17, 30, 52, 0.14);
   backdrop-filter: blur(14px);
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 180ms ease, background-color 180ms ease;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 
 .mobile-zoom-btn:hover {
@@ -781,7 +787,13 @@ button:focus-visible {
   transform: scale(0.94);
 }
 
-#mobileZoomIcon {
+.mobile-zoom-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mobile-zoom-btn span {
   font-size: 1.6rem;
   font-weight: 700;
   color: var(--text-main);
@@ -1058,6 +1070,63 @@ button:focus-visible {
   backdrop-filter: blur(10px);
 }
 
+.share-poster-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1120;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.share-poster-overlay.is-open {
+  display: flex;
+}
+
+.share-poster-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 20, 32, 0.52);
+  backdrop-filter: blur(10px);
+}
+
+.share-poster-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(430px, 100%);
+  max-height: min(92vh, 820px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(88, 111, 140, 0.14);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-lg);
+}
+
+.share-poster-preview-shell {
+  min-height: 0;
+  overflow: auto;
+  border-radius: 18px;
+  background: #edf1f5;
+  -webkit-overflow-scrolling: touch;
+}
+
+.share-poster-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+}
+
+.share-poster-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
 .dialog {
   width: min(460px, 100%);
   border-radius: 24px;
@@ -1205,6 +1274,10 @@ button:focus-visible {
 
   .mobile-map-overlay {
     display: block;
+  }
+
+  .mobile-zoom-controls {
+    display: flex;
   }
 
   .mobile-action-dock {

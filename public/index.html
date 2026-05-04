@@ -118,9 +118,14 @@
         </div>
         <div class="map-stage">
           <div id="map"></div>
-          <button type="button" id="mobileZoomBtn" class="mobile-zoom-btn mobile-only" title="放大/缩小地图">
-            <span id="mobileZoomIcon">＋</span>
-          </button>
+          <div id="mobileZoomControls" class="mobile-zoom-controls mobile-only" aria-label="地图缩放">
+            <button type="button" id="mobileZoomInBtn" class="mobile-zoom-btn" aria-label="放大地图">
+              <span aria-hidden="true">＋</span>
+            </button>
+            <button type="button" id="mobileZoomOutBtn" class="mobile-zoom-btn" aria-label="缩小地图">
+              <span aria-hidden="true">－</span>
+            </button>
+          </div>
         </div>
         <div id="mobileMapOverlay" class="mobile-map-overlay mobile-only" aria-live="polite">
           <div class="mobile-filter-bar">
@@ -185,6 +190,26 @@
           <button type="button" id="detailDeleteBtn" class="btn btn-ghost btn-danger-ghost">删除地点</button>
         </div>
       </aside>
+    </div>
+
+    <div id="sharePosterDialog" class="share-poster-overlay" aria-hidden="true">
+      <div class="share-poster-backdrop" data-share-poster-close="true"></div>
+      <section class="share-poster-dialog" role="dialog" aria-modal="true" aria-labelledby="sharePosterTitle">
+        <div class="dialog-header">
+          <div>
+            <p class="section-kicker">分享海报</p>
+            <h3 id="sharePosterTitle">长按图片保存或转发</h3>
+          </div>
+          <button type="button" id="sharePosterCloseBtn" class="dialog-close" aria-label="关闭分享海报">&times;</button>
+        </div>
+        <div class="share-poster-preview-shell">
+          <img id="sharePosterPreview" class="share-poster-preview" alt="地点分享海报">
+        </div>
+        <div class="share-poster-actions">
+          <button type="button" id="sharePosterCopyBtn" class="btn btn-ghost">复制高德链接</button>
+          <button type="button" id="sharePosterDoneBtn" class="btn btn-primary">完成</button>
+        </div>
+      </section>
     </div>
 
     <!-- 编辑对话框 -->
