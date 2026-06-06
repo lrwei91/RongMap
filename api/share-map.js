@@ -1,6 +1,6 @@
 const https = require('https');
+const { AMAP_WEB_SERVICE_KEY } = require('../lib/amap');
 
-const AMAP_WEB_SERVICE_KEY = '8df650b9d87529c0d756660265fa82a2';
 const STATIC_MAP_SIZE = '900*520';
 const STATIC_MAP_ZOOM = 19;
 

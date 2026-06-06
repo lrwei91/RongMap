@@ -24,21 +24,13 @@ const SHARE_QR_SIZE = 4 * SHARE_QR_VERSION + 17;
 const CATEGORIES = {
   food: { label: '餐饮美食', color: '#ef4444' },
   spot: { label: '景点休闲', color: '#10b981' },
-  shopping: { label: '购物消费', color: '#8b5cf6' },
-  traffic: { label: '交通枢纽', color: '#3b82f6' },
-  medical: { label: '医疗服务', color: '#f59e0b' },
-  education: { label: '教育培训', color: '#06b6d4' },
-  other: { label: '其他', color: '#6b7280' }
+  cafe_bar: { label: '日咖夜酒', color: '#8b5cf6' }
 };
 
 const CATEGORY_ALIASES = {
-  food: ['餐饮美食', '餐饮', '美食', '咖啡', '小吃', '甜品', '饮品', '餐厅', '饭店'],
+  food: ['餐饮美食', '餐饮', '美食', '小吃', '甜品', '饮品', '餐厅', '饭店'],
   spot: ['景点休闲', '景点', '休闲', '景区', '公园', '乐园', '娱乐', '旅游'],
-  shopping: ['购物消费', '购物', '商场', '超市', '百货', '便利店', '消费'],
-  traffic: ['交通枢纽', '交通', '地铁', '高铁', '火车站', '汽车站', '机场', '码头'],
-  medical: ['医疗服务', '医疗', '医院', '诊所', '药店', '门诊'],
-  education: ['教育培训', '教育', '学校', '培训', '大学', '学院', '图书馆'],
-  other: ['其他', '其它']
+  cafe_bar: ['日咖夜酒', '咖啡', '咖啡店', '咖啡馆', '酒吧', '精酿', '小酒馆', 'bistro', 'bar']
 };
 
 const SOURCE_TYPES = {
@@ -70,7 +62,6 @@ let ui = {};
 
 let searchDebounceTimer = null;
 let selectedSuggestion = null;
-let autoCompleteService = null;
 let placeSearchService = null;
 let searchServicesPromise = null;
 let latestSuggestionRequestId = 0;
@@ -115,20 +106,12 @@ function initSearchServices() {
   }
 
   searchServicesPromise = new Promise((resolve) => {
-    AMap.plugin(['AMap.AutoComplete', 'AMap.PlaceSearch'], () => {
+    AMap.plugin('AMap.PlaceSearch', () => {
       try {
-        const AutoCompleteConstructor = AMap.AutoComplete || AMap.Autocomplete;
-
-        if (!AutoCompleteConstructor || !AMap.PlaceSearch) {
+        if (!AMap.PlaceSearch) {
           resolve(false);
           return;
         }
-
-        autoCompleteService = new AutoCompleteConstructor({
-          city: SEARCH_CITY,
-          citylimit: false,
-          datatype: 'poi'
-        });
 
         placeSearchService = new AMap.PlaceSearch({
           city: SEARCH_CITY,
@@ -137,10 +120,6 @@ function initSearchServices() {
           pageIndex: 1,
           extensions: 'all'
         });
-
-        if (typeof autoCompleteService.setCityLimit === 'function') {
-          autoCompleteService.setCityLimit(false);
-        }
 
         if (typeof placeSearchService.setCityLimit === 'function') {
           placeSearchService.setCityLimit(false);
@@ -234,13 +213,15 @@ function initUI() {
     mobileListSheet: document.getElementById('mobileListSheet'),
     mobileAddCloseBtn: document.getElementById('mobileAddCloseBtn'),
     mobileListCloseBtn: document.getElementById('mobileListCloseBtn'),
-    mobileExportBtn: document.getElementById('mobileExportBtn'),
+    mobileExportJsonBtn: document.getElementById('mobileExportJsonBtn'),
+    mobileExportCsvBtn: document.getElementById('mobileExportCsvBtn'),
     mobileZoomInBtn: document.getElementById('mobileZoomInBtn'),
     mobileZoomOutBtn: document.getElementById('mobileZoomOutBtn'),
     toast: document.getElementById('toast'),
     searchSuggestions: document.getElementById('searchSuggestions'),
     locateMeBtn: document.getElementById('locateMeBtn'),
-    exportBtn: document.getElementById('exportBtn'),
+    exportJsonBtn: document.getElementById('exportJsonBtn'),
+    exportCsvBtn: document.getElementById('exportCsvBtn'),
     categorySelect: document.getElementById('categorySelect'),
     categoryFilterSelect: document.getElementById('categoryFilterSelect'),
     mobileCategoryFilterSelect: document.getElementById('mobileCategoryFilterSelect'),
@@ -271,7 +252,13 @@ function initUI() {
     editReason: document.getElementById('editReason'),
     saveEditBtn: document.getElementById('saveEditBtn'),
     cancelEditBtn: document.getElementById('cancelEditBtn'),
-    dialogClose: document.getElementById('editDialogCloseBtn')
+    editDialogCloseBtn: document.getElementById('editDialogCloseBtn'),
+    // 通用确认对话框
+    confirmDialog: document.getElementById('confirmDialog'),
+    confirmDialogTitle: document.getElementById('confirmDialogTitle'),
+    confirmDialogMessage: document.getElementById('confirmDialogMessage'),
+    confirmDialogOkBtn: document.getElementById('confirmDialogOkBtn'),
+    confirmDialogCancelBtn: document.getElementById('confirmDialogCancelBtn')
   };
 }
 
@@ -334,7 +321,7 @@ function navigateToLocation(loc) {
   const url = loc ? buildNavigationUrl(loc) : '';
 
   if (!url) {
-    showToast('该地点还未完成定位', 'error');
+    showToast('该地点还未定位', 'error');
     return false;
   }
 
@@ -344,7 +331,7 @@ function navigateToLocation(loc) {
 
 function buildLocationSharePayload(loc) {
   const title = loc && loc.name ? loc.name : '地点';
-  const address = loc && loc.address ? loc.address : '未填写地址';
+  const address = loc && loc.address ? loc.address : '暂无地址';
   const url = loc ? buildNavigationUrl(loc) : '';
   const nativeText = [title, address].filter(Boolean).join('\n');
   const fallbackText = url
@@ -831,7 +818,7 @@ function drawSharePosterInfo(ctx, loc, payload, poiInfo) {
 
   ctx.fillStyle = '#5d6b7f';
   ctx.font = '400 28px Arial, sans-serif';
-  y = fillWrappedText(ctx, loc.address || '未填写地址', left, y, maxWidth, 38, 2) + 30;
+  y = fillWrappedText(ctx, loc.address || '暂无地址', left, y, maxWidth, 38, 2) + 30;
 
   ctx.fillStyle = '#182334';
   ctx.font = '700 26px Arial, sans-serif';
@@ -913,6 +900,7 @@ function openSharePosterDialog(poster) {
   currentSharePoster = poster;
   if (!ui.sharePosterDialog || !ui.sharePosterPreview) return;
 
+  focusBeforeDialog = document.activeElement;
   ui.sharePosterPreview.src = poster.dataUrl;
   ui.sharePosterDialog.classList.add('is-open');
   ui.sharePosterDialog.setAttribute('aria-hidden', 'false');
@@ -935,21 +923,26 @@ function closeSharePosterDialog() {
   }
   currentSharePoster = null;
   document.body.classList.toggle('drawer-open', Boolean(ui.detailDrawer && ui.detailDrawer.classList.contains('is-open')));
+
+  if (focusBeforeDialog && typeof focusBeforeDialog.focus === 'function') {
+    focusBeforeDialog.focus();
+  }
+  focusBeforeDialog = null;
 }
 
 async function shareLocation(loc) {
   if (!loc) {
-    showToast('未找到可分享的地点', 'error');
+    showToast('没有可分享的地点', 'error');
     return;
   }
 
   if (!hasCoordinates(loc)) {
-    showToast('该地点还未完成定位，无法生成分享海报', 'error');
+    showToast('该地点还未定位，无法生成分享海报', 'error');
     return;
   }
 
   const payload = buildLocationSharePayload(loc);
-  setButtonBusy(ui.detailShareBtn, true, '生成中...');
+  setButtonBusy(ui.detailShareBtn, true, '生成…');
 
   try {
     const poster = await createSharePoster(loc, payload);
@@ -965,7 +958,7 @@ async function shareLocation(loc) {
           text: payload.nativeText,
           files: [poster.file]
         });
-        showToast('已打开系统分享面板', 'success');
+        showToast('已打开分享面板', 'success');
         return;
       } catch (err) {
         if (err && err.name === 'AbortError') {
@@ -976,7 +969,7 @@ async function shareLocation(loc) {
     }
 
     openSharePosterDialog(poster);
-    showToast(isWechatBrowser() ? '长按海报保存或转发' : '已生成分享海报', 'success');
+    showToast(isWechatBrowser() ? '长按或右键保存海报' : '海报已生成', 'success');
   } catch (err) {
     console.warn('分享海报生成失败，回退到复制内容:', err);
     try {
@@ -992,13 +985,13 @@ async function shareLocation(loc) {
 
 async function copyCurrentSharePosterLink() {
   if (!currentSharePoster || !currentSharePoster.payload || !currentSharePoster.payload.url) {
-    showToast('没有可复制的高德链接', 'error');
+    showToast('没有可复制的链接', 'error');
     return;
   }
 
   try {
     await copyTextToClipboard(currentSharePoster.payload.url);
-    showToast('已复制高德链接', 'success');
+    showToast('已复制链接', 'success');
   } catch (err) {
     showToast(`复制失败：${err.message}`, 'error');
   }
@@ -1038,12 +1031,13 @@ function syncMobileSheetState() {
 
   if (ui.mobileAddSheet) {
     ui.mobileAddSheet.classList.toggle('is-open', isAddSheetOpen);
-    ui.mobileAddSheet.setAttribute('aria-hidden', String(mobileActive ? !isAddSheetOpen : false));
+    // 桌面布局下 mobile sheet 对屏读用户也是不可见的（CSS 隐藏/占位）
+    ui.mobileAddSheet.setAttribute('aria-hidden', String(!mobileActive || !isAddSheetOpen));
   }
 
   if (ui.mobileListSheet) {
     ui.mobileListSheet.classList.toggle('is-open', isListSheetOpen);
-    ui.mobileListSheet.setAttribute('aria-hidden', String(mobileActive ? !isListSheetOpen : false));
+    ui.mobileListSheet.setAttribute('aria-hidden', String(!mobileActive || !isListSheetOpen));
   }
 
   if (ui.mobileAddToggleBtn) {
@@ -1058,6 +1052,7 @@ function syncMobileSheetState() {
 
   if (ui.mobileActionDock) {
     ui.mobileActionDock.classList.toggle('is-muted', anySheetOpen);
+    ui.mobileActionDock.setAttribute('aria-hidden', String(!mobileActive));
   }
 
   document.body.classList.toggle('mobile-sheet-open', mobileActive && anySheetOpen);
@@ -1142,7 +1137,7 @@ function closeMobileListSheet(options = {}) {
 
 function centerMapOnLocation(loc, zoom = 16, options = {}) {
   if (!hasCoordinates(loc)) {
-    showToast('该地点还未完成定位', 'error');
+    showToast('该地点还未定位', 'error');
     return false;
   }
 
@@ -1311,24 +1306,6 @@ function buildSuggestionAddress(raw) {
   ]);
 }
 
-function getSuggestionKey(item) {
-  return item.id || `${normalizeText(item.name)}::${normalizeText(item.address)}`;
-}
-
-function isFuzhouSuggestion(item) {
-  const citycode = normalizeOptionalText(item && item.citycode);
-  const adcode = normalizeOptionalText(item && item.adcode);
-  const cityname = normalizeOptionalText(item && item.cityname);
-  const district = normalizeOptionalText(item && item.district);
-  const address = normalizeOptionalText(item && item.address);
-
-  return citycode === SEARCH_CITY_CODE ||
-    adcode.startsWith(FUZHOU_ADCODE_PREFIX) ||
-    cityname.includes(SEARCH_CITY) ||
-    district.includes(SEARCH_CITY) ||
-    address.includes(SEARCH_CITY);
-}
-
 function normalizeSuggestion(raw, source, keyword, index) {
   const coords = parseCoordinatePair(raw && raw.location);
   const name = normalizeOptionalText(raw && raw.name);
@@ -1352,121 +1329,6 @@ function normalizeSuggestion(raw, source, keyword, index) {
     source,
     rankIndex: index
   };
-}
-
-function mergeSuggestion(existing, incoming) {
-  const incomingAddress = incoming.address || existing.address;
-  const existingAddress = existing.address || incoming.address;
-  const incomingHasPoint = hasValidPoint(incoming);
-
-  return {
-    ...existing,
-    ...incoming,
-    address: incomingAddress.length >= existingAddress.length ? incomingAddress : existingAddress,
-    district: incoming.district || existing.district,
-    cityname: incoming.cityname || existing.cityname,
-    citycode: incoming.citycode || existing.citycode,
-    adcode: incoming.adcode || existing.adcode,
-    type: incoming.type || existing.type,
-    latitude: incomingHasPoint ? incoming.latitude : existing.latitude,
-    longitude: incomingHasPoint ? incoming.longitude : existing.longitude,
-    source: incoming.source === 'place-search' ? incoming.source : existing.source,
-    rankIndex: Math.min(existing.rankIndex, incoming.rankIndex)
-  };
-}
-
-function scoreSuggestion(item, context = {}) {
-  const keyword = normalizeText(context.keyword);
-  const selectedName = normalizeText(context.selectedName);
-  const selectedId = normalizeOptionalText(context.selectedId);
-  const name = normalizeText(item.name);
-  const address = normalizeText(item.address);
-  let score = 0;
-
-  if (selectedId && item.id && item.id === selectedId) {
-    score += 1000;
-  }
-
-  if (selectedName) {
-    if (name === selectedName) {
-      score += 700;
-    } else if (name.includes(selectedName) || selectedName.includes(name)) {
-      score += 320;
-    }
-  }
-
-  if (keyword) {
-    if (name === keyword) {
-      score += 400;
-    } else if (name.includes(keyword) || keyword.includes(name)) {
-      score += 180;
-    }
-
-    if (address.includes(keyword)) {
-      score += 50;
-    }
-  }
-
-  if (isFuzhouSuggestion(item)) {
-    score += 120;
-  }
-
-  if (hasValidPoint(item)) {
-    score += 30;
-  }
-
-  if (item.source === 'place-search') {
-    score += 15;
-  }
-
-  return score - (item.rankIndex * 0.001);
-}
-
-function rankSuggestions(items, context) {
-  return [...items].sort((a, b) => scoreSuggestion(b, context) - scoreSuggestion(a, context));
-}
-
-function mergeSuggestionLists(lists, context) {
-  const merged = new Map();
-
-  lists.flat().forEach((item) => {
-    if (!item) return;
-
-    const key = getSuggestionKey(item);
-    const existing = merged.get(key);
-
-    if (!existing) {
-      merged.set(key, item);
-      return;
-    }
-
-    merged.set(key, mergeSuggestion(existing, item));
-  });
-
-  return rankSuggestions(Array.from(merged.values()), context).slice(0, SEARCH_LIMIT);
-}
-
-function searchWithAutoComplete(keyword) {
-  return new Promise((resolve, reject) => {
-    if (!autoCompleteService) {
-      resolve([]);
-      return;
-    }
-
-    autoCompleteService.search(keyword, (status, result) => {
-      if (status === 'error') {
-        reject(new Error('高德输入提示失败'));
-        return;
-      }
-
-      const tips = Array.isArray(result && result.tips) ? result.tips : [];
-      resolve(
-        tips
-          .map((item, index) => normalizeSuggestion(item, 'auto-complete', keyword, index))
-          .filter(Boolean)
-      );
-    });
-  });
 }
 
 function searchWithPlaceSearch(keyword) {
@@ -1518,14 +1380,9 @@ async function lookupSuggestions(keyword) {
   }
 
   try {
-    const [tips, pois] = await Promise.all([
-      searchWithAutoComplete(keyword),
-      searchWithPlaceSearch(keyword)
-    ]);
-
-    const merged = mergeSuggestionLists([tips, pois], { keyword });
-    if (merged.length > 0) {
-      return merged;
+    const results = await searchWithPlaceSearch(keyword);
+    if (results.length > 0) {
+      return results;
     }
   } catch (err) {
     console.warn('高德前端搜索失败，降级到后端搜索:', err);
@@ -1534,82 +1391,23 @@ async function lookupSuggestions(keyword) {
   return fetchFallbackSuggestions(keyword);
 }
 
-function pickBestPlaceSearchResult(pois, selected) {
-  if (!Array.isArray(pois) || pois.length === 0) {
-    return null;
-  }
-
-  const normalizedPois = pois
-    .map((item, index) => normalizeSuggestion(item, 'place-search', selected.name, index))
-    .filter(Boolean);
-
-  return rankSuggestions(normalizedPois, {
-    keyword: selected.name,
-    selectedId: selected.id,
-    selectedName: selected.name
-  })[0] || null;
-}
-
-async function resolveSuggestionDetails(selected) {
-  if (hasValidPoint(selected)) {
-    return selected;
-  }
-
-  const servicesReady = await initSearchServices();
-
-  if (servicesReady && placeSearchService) {
-    const places = await new Promise((resolve, reject) => {
-      placeSearchService.search(selected.name, (status, result) => {
-        if (status === 'error') {
-          reject(new Error('高德详情补全失败'));
-          return;
-        }
-
-        const pois = Array.isArray(result && result.poiList && result.poiList.pois)
-          ? result.poiList.pois
-          : [];
-
-        resolve(pois);
-      });
-    });
-
-    const best = pickBestPlaceSearchResult(places, selected);
-    if (best && hasValidPoint(best)) {
-      return {
-        ...selected,
-        ...best,
-        address: best.address || selected.address
-      };
-    }
-  }
-
-  const fallback = await fetchFallbackSuggestions(selected.name);
-  const bestFallback = rankSuggestions(fallback, {
-    keyword: selected.name,
-    selectedId: selected.id,
-    selectedName: selected.name
-  })[0];
-
-  if (bestFallback && hasValidPoint(bestFallback)) {
-    return {
-      ...selected,
-      ...bestFallback,
-      address: bestFallback.address || selected.address
-    };
-  }
-
-  throw new Error('未找到该地点的坐标信息，请重新选择候选结果');
-}
+let locationsLoadState = 'idle'; // 'idle' | 'loading' | 'error'
 
 async function loadLocations() {
+  locationsLoadState = 'loading';
+  renderLocationsList();
+
   try {
     locations = (await requestJson('/api/locations')).map(normalizeLocationRecord);
+    locationsLoadState = 'idle';
     syncFilteredSelectionState();
     renderLocationsList();
     renderMarkers();
   } catch (err) {
     console.error('加载地点失败:', err);
-    showToast(`加载地点失败：${err.message}`, 'error');
+    locationsLoadState = 'error';
+    renderLocationsList();
+    showToast(`加载失败：${err.message}`, 'error');
   }
 }
 
@@ -1619,10 +1417,14 @@ function updateStats() {
   ui.locationCount.textContent = String(filteredLocations.length);
   ui.geocodedCount.textContent = String(geocodedCount);
   if (ui.mobileLocationSummary) {
-    ui.mobileLocationSummary.textContent = `${filteredLocations.length} 个地点 · ${geocodedCount} 个已带坐标`;
+    ui.mobileLocationSummary.textContent = filteredLocations.length === 0
+      ? '暂无收藏'
+      : `${filteredLocations.length} 个 · ${geocodedCount} 个已定位`;
   }
   if (ui.listSummary) {
-    ui.listSummary.textContent = `${filteredLocations.length} 个地点，${geocodedCount} 个已带坐标`;
+    ui.listSummary.textContent = filteredLocations.length === 0
+      ? '暂无收藏'
+      : `${filteredLocations.length} 个，${geocodedCount} 个已定位`;
   }
 }
 
@@ -1632,8 +1434,9 @@ function getCategoryLabel(category) {
 }
 
 function createMarkerIcon(category, isActive) {
-  const color = category.color || CATEGORIES.other.color;
-  const label = escapeHtml((category.label || CATEGORIES.other.label).slice(0, 1));
+  const fallbackCategory = CATEGORIES.food;
+  const color = category.color || fallbackCategory.color;
+  const label = escapeHtml((category.label || fallbackCategory.label).slice(0, 1));
   const stroke = isActive ? '#dbeafe' : '#ffffff';
   const shadow = isActive ? '#1d4ed833' : '#0f172a33';
   const svg = `
@@ -1696,7 +1499,7 @@ function normalizeCategoryValue(value) {
 function normalizeLocationRecord(location) {
   return {
     ...location,
-    category: normalizeCategoryValue(location && location.category)
+    category: normalizeCategoryValue(location && location.category) || 'food'
   };
 }
 
@@ -1832,7 +1635,7 @@ function updateViewportSummary() {
     return;
   }
 
-  const suffix = count > previewNames.length ? ` 等 ${count} 个地点` : '';
+  const suffix = count > previewNames.length ? ` 等 ${count} 个` : '';
   ui.viewportHint.textContent = `${previewNames.join('、')}${suffix}`;
   if (ui.mobileViewportHint) {
     ui.mobileViewportHint.textContent = `${previewNames.join('、')}${suffix}`;
@@ -1922,14 +1725,26 @@ function renderLocationsList() {
   updateStats();
   const filteredLocations = getFilteredLocations();
 
+  if (locationsLoadState === 'loading') {
+    ui.locationsList.innerHTML = '<div class="empty-state loading">加载中…</div>';
+    return;
+  }
+
+  if (locationsLoadState === 'error') {
+    ui.locationsList.innerHTML = '<div class="empty-state error">加载失败<button type="button" class="btn btn-ghost retry-load-btn" style="margin-top:10px;">重试</button></div>';
+    const retryBtn = ui.locationsList.querySelector('.retry-load-btn');
+    if (retryBtn) retryBtn.addEventListener('click', () => loadLocations());
+    return;
+  }
+
   if (locations.length === 0) {
-    ui.locationsList.innerHTML = '<div class="empty-state">还没有保存的地点。先在上方搜索一个地点，再把它加入地图。</div>';
+    ui.locationsList.innerHTML = '<div class="empty-state">还没有收藏地点。先搜索，再加入地图。</div>';
     return;
   }
 
   if (filteredLocations.length === 0) {
     const filterSummary = getActiveFilterSummary();
-    ui.locationsList.innerHTML = `<div class="empty-state">${filterSummary ? `当前筛选“${escapeHtml(filterSummary)}”下暂无地点。` : '当前没有可显示的地点。'}</div>`;
+    ui.locationsList.innerHTML = `<div class="empty-state">${filterSummary ? `当前筛选下没有「${escapeHtml(filterSummary)}」地点` : '当前没有可显示的地点'}</div>`;
     return;
   }
 
@@ -1942,7 +1757,7 @@ function renderLocationsList() {
       ? `<span class="category-badge" style="--badge-color:${category.color};background:${category.color}14;border-color:${category.color}26;color:${category.color};">${escapeHtml(getCategoryLabel(loc.category))}</span>`
       : '';
     const sourceBadge = `<span class="source-badge">${escapeHtml(getSourceLabel(getLocationSourceType(loc)))}</span>`;
-    const revealLabel = hasCoords ? '地图聚焦' : '待定位';
+    const revealLabel = hasCoords ? '聚焦' : '未定位';
     const revealDisabled = hasCoords ? '' : ' disabled aria-disabled="true"';
     const navigateDisabled = hasCoords ? '' : ' disabled aria-disabled="true"';
 
@@ -1987,7 +1802,7 @@ function renderMarkers() {
   getFilteredLocations().forEach((loc) => {
     if (!hasCoordinates(loc)) return;
     const isActive = activeLocationId === loc.id;
-    const category = CATEGORIES[loc.category] || CATEGORIES.other;
+    const category = CATEGORIES[loc.category] || CATEGORIES.food;
 
     const markerInstance = new AMap.Marker({
       position: [Number(loc.longitude), Number(loc.latitude)],
@@ -2017,8 +1832,8 @@ function syncDetailDrawer() {
 
   if (!loc) {
     ui.detailTitle.textContent = '地点';
-    ui.detailAddress.textContent = '未填写地址';
-    ui.detailReason.textContent = '还没有添加备注';
+    ui.detailAddress.textContent = '暂无地址';
+    ui.detailReason.textContent = '暂无备注';
     ui.detailReason.classList.add('detail-note-empty');
     ui.detailCoords.textContent = '未定位';
     ui.detailCreatedAt.textContent = '未知';
@@ -2030,7 +1845,7 @@ function syncDetailDrawer() {
   }
 
   ui.detailTitle.textContent = loc.name;
-  ui.detailAddress.textContent = loc.address || '未填写地址';
+  ui.detailAddress.textContent = loc.address || '暂无地址';
   ui.detailCoords.textContent = getCoordinateText(loc);
   ui.detailCreatedAt.textContent = formatDateTime(loc.createdAt);
 
@@ -2038,7 +1853,7 @@ function syncDetailDrawer() {
     ui.detailReason.textContent = loc.reason;
     ui.detailReason.classList.remove('detail-note-empty');
   } else {
-    ui.detailReason.textContent = '还没有添加备注';
+    ui.detailReason.textContent = '暂无备注';
     ui.detailReason.classList.add('detail-note-empty');
   }
 
@@ -2109,7 +1924,7 @@ function closeDetailDrawer(options = {}) {
 function focusLocation(id, zoom = FOCUS_ZOOM, options = {}) {
   const location = getLocationById(id);
   if (!location || !hasCoordinates(location)) {
-    showToast('该地点还未完成定位', 'error');
+    showToast('该地点还未定位', 'error');
     return;
   }
 
@@ -2141,7 +1956,7 @@ function mapAmapLocateError(result) {
   }
 
   if (info.includes('POSITION_UNAVAILABLE') || info.includes('NO_POSITION')) {
-    return createLocateError('precision', '定位失败：当前定位精度不足，请移步到空旷区域后重试');
+    return createLocateError('precision', '定位失败：定位精度不足，请移步到空旷区域后重试');
   }
 
   return createLocateError('failed', `定位失败：${message || result?.info || '暂时无法获取当前位置'}`);
@@ -2154,7 +1969,7 @@ function mapBrowserLocateError(error) {
     case error.TIMEOUT:
       return createLocateError('timeout', '定位失败：定位请求超时，请稍后重试');
     case error.POSITION_UNAVAILABLE:
-      return createLocateError('precision', '定位失败：当前定位精度不足，请移步到空旷区域后重试');
+      return createLocateError('precision', '定位失败：定位精度不足，请移步到空旷区域后重试');
     default:
       return createLocateError('failed', `定位失败：${error.message || '暂时无法获取当前位置'}`);
   }
@@ -2222,7 +2037,7 @@ async function locateWithAmap() {
         }
 
         if (locationType.startsWith('ip') || (Number.isFinite(accuracy) && accuracy > 5000)) {
-          reject(createLocateError('precision', '定位失败：当前定位精度不足，请移步到空旷区域后重试'));
+          reject(createLocateError('precision', '定位失败：定位精度不足，请移步到空旷区域后重试'));
           return;
         }
 
@@ -2252,7 +2067,7 @@ async function locateWithBrowser() {
         const accuracy = Number(position.coords.accuracy);
 
         if (Number.isFinite(accuracy) && accuracy > 5000) {
-          reject(createLocateError('precision', '定位失败：当前定位精度不足，请移步到空旷区域后重试'));
+          reject(createLocateError('precision', '定位失败：定位精度不足，请移步到空旷区域后重试'));
           return;
         }
 
@@ -2277,8 +2092,8 @@ async function locateWithBrowser() {
 }
 
 async function locateMe() {
-  setButtonBusy(ui.locateMeBtn, true, '定位中...');
-  setButtonBusy(ui.mobileLocateBtn, true, '定位中...');
+  setButtonBusy(ui.locateMeBtn, true, '定位…');
+  setButtonBusy(ui.mobileLocateBtn, true, '定位…');
 
   try {
     let locationData;
@@ -2295,7 +2110,7 @@ async function locateMe() {
     }
 
     renderMyLocationMarker(locationData);
-    showToast('已定位到您的当前位置', 'success');
+    showToast('已定位到当前位置', 'success');
   } catch (err) {
     showToast(err.message || '定位失败：暂时无法获取当前位置', 'error');
   } finally {
@@ -2305,11 +2120,23 @@ async function locateMe() {
 }
 
 // 导出功能
+function csvEscapeCell(value) {
+  if (value === null || value === undefined) return '';
+  const text = String(value);
+  // RFC 4180：含 " , \r \n 的字段必须用 " 包裹，内部 " 双写
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
 function exportData(format = 'json') {
   if (locations.length === 0) {
-    showToast('暂无可导出的数据', 'error');
+    showToast('暂无数据可导出', 'error');
     return;
   }
+
+  const today = new Date().toISOString().split('T')[0];
 
   if (format === 'json') {
     const dataStr = JSON.stringify(locations, null, 2);
@@ -2317,34 +2144,35 @@ function exportData(format = 'json') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fuzhou-locations-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `rongmap-locations-${today}.json`;
     a.click();
     URL.revokeObjectURL(url);
   } else if (format === 'csv') {
     const headers = ['ID', '名称', '地址', '分类', '来源', '理由', '纬度', '经度', '添加时间'];
     const rows = locations.map(loc => [
-      loc.id,
-      `"${loc.name}"`,
-      `"${loc.address}"`,
-      loc.category || '',
-      getSourceLabel(getLocationSourceType(loc)),
-      loc.reason ? `"${loc.reason}"` : '',
-      loc.latitude || '',
-      loc.longitude || '',
-      loc.createdAt
+      csvEscapeCell(loc.id),
+      csvEscapeCell(loc.name),
+      csvEscapeCell(loc.address),
+      csvEscapeCell(loc.category),
+      csvEscapeCell(getSourceLabel(getLocationSourceType(loc))),
+      csvEscapeCell(loc.reason),
+      csvEscapeCell(loc.latitude),
+      csvEscapeCell(loc.longitude),
+      csvEscapeCell(loc.createdAt)
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    // 前置 BOM 让 Excel 正确识别 UTF-8 中文
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fuzhou-locations-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `rongmap-locations-${today}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  showToast('导出成功', 'success');
+  showToast('已导出', 'success');
 }
 
 // 编辑功能
@@ -2353,19 +2181,29 @@ function openEditDialog(id) {
   if (!loc) return;
 
   closeDetailDrawer({ restoreFocus: false });
+  focusBeforeDialog = document.activeElement;
   ui.editLocationId.value = id;
   ui.editName.value = loc.name;
   ui.editAddress.value = loc.address;
-  ui.editCategory.value = loc.category || '';
+  ui.editCategory.value = loc.category || 'food';
   ui.editReason.value = loc.reason || '';
-  ui.editDialog.style.display = 'flex';
+  ui.editDialog.classList.add('is-open');
+  ui.editDialog.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('drawer-open');
   window.requestAnimationFrame(() => {
     ui.editName.focus();
   });
 }
 
 function closeEditDialog() {
-  ui.editDialog.style.display = 'none';
+  ui.editDialog.classList.remove('is-open');
+  ui.editDialog.setAttribute('aria-hidden', 'true');
+  document.body.classList.toggle('drawer-open', Boolean(ui.detailDrawer && ui.detailDrawer.classList.contains('is-open')));
+
+  if (focusBeforeDialog && typeof focusBeforeDialog.focus === 'function') {
+    focusBeforeDialog.focus();
+  }
+  focusBeforeDialog = null;
 }
 
 async function saveEdit() {
@@ -2373,7 +2211,7 @@ async function saveEdit() {
   const updates = {
     name: ui.editName.value.trim(),
     address: ui.editAddress.value.trim(),
-    category: ui.editCategory.value || null,
+    category: ui.editCategory.value || 'food',
     reason: ui.editReason.value.trim() || null
   };
 
@@ -2398,25 +2236,25 @@ async function saveEdit() {
     renderLocationsList();
     renderMarkers();
     closeEditDialog();
-    showToast('地点已更新', 'success');
+    showToast('已更新', 'success');
   } catch (err) {
-    showToast(`更新失败：${err.message}`, 'error');
+    showToast(`保存失败：${err.message}`, 'error');
   }
 }
 
 async function addSingleLocation() {
   const address = ui.singleInput.value.trim();
   const reason = ui.reasonInput.value.trim();
-  const category = ui.categorySelect.value || null;
+  const category = ui.categorySelect.value || 'food';
 
   if (!address) {
-    showToast('请输入地址后再提交', 'error');
+    showToast('请先输入地点', 'error');
     ui.singleInput.focus();
     return;
   }
 
   if (!selectedSuggestion || normalizeText(selectedSuggestion.name) !== normalizeText(address)) {
-    setButtonBusy(ui.addSingleBtn, true, '搜索中...');
+    setButtonBusy(ui.addSingleBtn, true, '搜索…');
 
     try {
       const suggestions = await fetchSuggestions(address);
@@ -2425,35 +2263,38 @@ async function addSingleLocation() {
       }
 
       ui.singleInput.focus();
-      showToast('请先从候选结果中选择一个地点', 'error');
+      showToast('请先选择一个候选地点', 'error');
     } catch (err) {
-      showToast(`添加失败：${err.message}`, 'error');
+      showToast(`搜索失败：${err.message}`, 'error');
     } finally {
       setButtonBusy(ui.addSingleBtn, false);
     }
     return;
   }
 
-  setButtonBusy(ui.addSingleBtn, true, '添加中...');
+  setButtonBusy(ui.addSingleBtn, true, '加入…');
 
   try {
-    const resolvedSuggestion = await resolveSuggestionDetails(selectedSuggestion);
+    if (!hasValidPoint(selectedSuggestion)) {
+      throw new Error('该地点缺少坐标信息，请重新选择候选结果');
+    }
+
     const location = {
-      name: resolvedSuggestion.name,
-      address: resolvedSuggestion.address || address,
+      name: selectedSuggestion.name,
+      address: selectedSuggestion.address || address,
       reason: reason,
       category: category,
-      latitude: resolvedSuggestion.latitude,
-      longitude: resolvedSuggestion.longitude,
-      sourceId: resolvedSuggestion.id || null,
+      latitude: selectedSuggestion.latitude,
+      longitude: selectedSuggestion.longitude,
+      sourceId: selectedSuggestion.id || null,
       sourceType: 'manual',
       sourcePlatform: 'web',
       createdBy: 'user',
       confidence: 'high',
       matchType: 'manual_search',
-      poiType: resolvedSuggestion.type || null,
-      city: resolvedSuggestion.cityname || SEARCH_CITY,
-      district: resolvedSuggestion.district || null
+      poiType: selectedSuggestion.type || null,
+      city: selectedSuggestion.cityname || SEARCH_CITY,
+      district: selectedSuggestion.district || null
     };
 
     const savedLocation = normalizeLocationRecord(await requestJson('/api/locations', {
@@ -2472,19 +2313,29 @@ async function addSingleLocation() {
 
     ui.singleInput.value = '';
     ui.reasonInput.value = '';
-    ui.categorySelect.value = '';
+    ui.categorySelect.value = 'food';
     selectedSuggestion = null;
     hideSuggestions();
-    showToast(shouldRevealSavedLocation ? '地点已添加' : '地点已添加，当前筛选未显示该地点', 'success');
+    showToast(shouldRevealSavedLocation ? '已加入' : '已加入，但当前筛选下不显示', 'success');
   } catch (err) {
-    showToast(`添加失败：${err.message}`, 'error');
+    showToast(`加入失败：${err.message}`, 'error');
   } finally {
     setButtonBusy(ui.addSingleBtn, false);
   }
 }
 
 async function deleteLocation(id) {
-  if (!window.confirm('确定删除该地点吗？')) return;
+  const loc = getLocationById(id);
+  const confirmed = await openConfirmDialog({
+    title: '删除地点',
+    message: loc
+      ? `确认删除「${loc.name}」？删除后无法恢复。`
+      : '确认删除？删除后无法恢复。',
+    confirmLabel: '删除',
+    danger: true
+  });
+
+  if (!confirmed) return;
 
   try {
     await requestJson(`/api/locations?id=${id}`, { method: 'DELETE' });
@@ -2500,10 +2351,65 @@ async function deleteLocation(id) {
     renderLocationsList();
     renderMarkers();
     refreshViewportState(true);
-    showToast('地点已删除', 'success');
+    showToast('已删除', 'success');
   } catch (err) {
     showToast(`删除失败：${err.message}`, 'error');
   }
+}
+
+let confirmDialogResolver = null;
+let focusBeforeDialog = null;
+
+function openConfirmDialog({ title, message, confirmLabel = '确定', cancelLabel = '取消', danger = false } = {}) {
+  return new Promise((resolve) => {
+    if (!ui.confirmDialog) {
+      resolve(window.confirm(message || '确认此操作？'));
+      return;
+    }
+
+    confirmDialogResolver = resolve;
+    focusBeforeDialog = document.activeElement;
+
+    if (ui.confirmDialogTitle) ui.confirmDialogTitle.textContent = title || '请确认';
+    if (ui.confirmDialogMessage) ui.confirmDialogMessage.textContent = message || '确认此操作？';
+
+    if (ui.confirmDialogOkBtn) {
+      ui.confirmDialogOkBtn.textContent = confirmLabel;
+      ui.confirmDialogOkBtn.classList.toggle('btn-danger', Boolean(danger));
+    }
+
+    if (ui.confirmDialogCancelBtn) {
+      ui.confirmDialogCancelBtn.textContent = cancelLabel;
+    }
+
+    ui.confirmDialog.classList.add('is-open');
+    ui.confirmDialog.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('drawer-open');
+
+    window.requestAnimationFrame(() => {
+      if (ui.confirmDialogCancelBtn) {
+        ui.confirmDialogCancelBtn.focus();
+      }
+    });
+  });
+}
+
+function closeConfirmDialog(result) {
+  if (!ui.confirmDialog) return;
+
+  ui.confirmDialog.classList.remove('is-open');
+  ui.confirmDialog.setAttribute('aria-hidden', 'true');
+  document.body.classList.toggle('drawer-open', Boolean(ui.detailDrawer && ui.detailDrawer.classList.contains('is-open')));
+
+  if (typeof confirmDialogResolver === 'function') {
+    confirmDialogResolver(Boolean(result));
+    confirmDialogResolver = null;
+  }
+
+  if (focusBeforeDialog && typeof focusBeforeDialog.focus === 'function') {
+    focusBeforeDialog.focus();
+  }
+  focusBeforeDialog = null;
 }
 
 function hideSuggestions() {
@@ -2592,9 +2498,15 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function trapDrawerFocus(event) {
-  const focusable = [ui.detailCloseBtn, ui.detailFocusBtn, ui.detailNavigateBtn, ui.detailShareBtn, ui.detailEditBtn, ui.detailDeleteBtn]
-    .filter((element) => element && !element.disabled);
+function getFocusableInContainer(container) {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter((el) => el.offsetParent !== null || el === document.activeElement);
+}
+
+function trapFocusInContainer(container, event) {
+  const focusable = getFocusableInContainer(container);
   if (focusable.length === 0) return;
 
   const first = focusable[0];
@@ -2614,6 +2526,18 @@ function trapDrawerFocus(event) {
 
 function handleGlobalKeydown(event) {
   if (event.key === 'Escape') {
+    if (ui.confirmDialog && ui.confirmDialog.classList.contains('is-open')) {
+      event.preventDefault();
+      closeConfirmDialog(false);
+      return;
+    }
+
+    if (ui.editDialog && ui.editDialog.classList.contains('is-open')) {
+      event.preventDefault();
+      closeEditDialog();
+      return;
+    }
+
     if (ui.sharePosterDialog && ui.sharePosterDialog.classList.contains('is-open')) {
       event.preventDefault();
       closeSharePosterDialog();
@@ -2633,10 +2557,25 @@ function handleGlobalKeydown(event) {
     return;
   }
 
-  if (!ui.detailDrawer.classList.contains('is-open')) return;
+  if (event.key !== 'Tab') return;
 
-  if (event.key === 'Tab') {
-    trapDrawerFocus(event);
+  if (ui.confirmDialog && ui.confirmDialog.classList.contains('is-open')) {
+    trapFocusInContainer(ui.confirmDialog, event);
+    return;
+  }
+
+  if (ui.editDialog && ui.editDialog.classList.contains('is-open')) {
+    trapFocusInContainer(ui.editDialog, event);
+    return;
+  }
+
+  if (ui.sharePosterDialog && ui.sharePosterDialog.classList.contains('is-open')) {
+    trapFocusInContainer(ui.sharePosterDialog, event);
+    return;
+  }
+
+  if (ui.detailDrawer.classList.contains('is-open')) {
+    trapFocusInContainer(ui.detailDrawer, event);
   }
 }
 
@@ -2686,11 +2625,6 @@ function handleListKeyboard(event) {
   }
 }
 
-function handleExportDialog() {
-  const format = window.confirm('选择导出格式：\n点击"确定"导出 JSON 格式\n点击"取消"导出 CSV 格式') ? 'json' : 'csv';
-  exportData(format);
-}
-
 function handleCategoryFilterChange(event) {
   applyCategoryFilter(event.target.value);
 }
@@ -2709,7 +2643,8 @@ function handleKeywordSearchInput(event) {
 function bindEvents() {
   ui.addSingleBtn.addEventListener('click', addSingleLocation);
   ui.locateMeBtn.addEventListener('click', locateMe);
-  ui.exportBtn.addEventListener('click', handleExportDialog);
+  ui.exportJsonBtn.addEventListener('click', () => exportData('json'));
+  ui.exportCsvBtn.addEventListener('click', () => exportData('csv'));
   ui.categoryFilterSelect.addEventListener('change', handleCategoryFilterChange);
   ui.mobileCategoryFilterSelect.addEventListener('change', handleCategoryFilterChange);
   ui.locationSearchInput.addEventListener('input', handleKeywordSearchInput);
@@ -2732,7 +2667,8 @@ function bindEvents() {
   });
   ui.mobileAddCloseBtn.addEventListener('click', () => closeMobileAddSheet());
   ui.mobileListCloseBtn.addEventListener('click', () => closeMobileListSheet());
-  ui.mobileExportBtn.addEventListener('click', handleExportDialog);
+  ui.mobileExportJsonBtn.addEventListener('click', () => exportData('json'));
+  ui.mobileExportCsvBtn.addEventListener('click', () => exportData('csv'));
 
   if (ui.mobileZoomInBtn) {
     ui.mobileZoomInBtn.addEventListener('click', () => zoomMobileMap('in'));
@@ -2763,10 +2699,18 @@ function bindEvents() {
 
   ui.saveEditBtn.addEventListener('click', saveEdit);
   ui.cancelEditBtn.addEventListener('click', closeEditDialog);
-  ui.dialogClose.addEventListener('click', closeEditDialog);
+  ui.editDialogCloseBtn.addEventListener('click', closeEditDialog);
   ui.editDialog.addEventListener('click', (e) => {
     if (e.target === ui.editDialog) closeEditDialog();
   });
+
+  if (ui.confirmDialogOkBtn) ui.confirmDialogOkBtn.addEventListener('click', () => closeConfirmDialog(true));
+  if (ui.confirmDialogCancelBtn) ui.confirmDialogCancelBtn.addEventListener('click', () => closeConfirmDialog(false));
+  if (ui.confirmDialog) {
+    ui.confirmDialog.addEventListener('click', (e) => {
+      if (e.target === ui.confirmDialog) closeConfirmDialog(false);
+    });
+  }
 
   ui.singleInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {

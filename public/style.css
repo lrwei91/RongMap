@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+/* 字体已在 index.html 通过 <link> 预连接加载，此处不再 @import 避免重复请求 */
 
 :root {
   color-scheme: light;
@@ -158,6 +158,29 @@ h2 {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.export-group {
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid rgba(29, 78, 216, 0.16);
+  background: rgba(29, 78, 216, 0.06);
+}
+
+.export-group .btn {
+  min-height: 40px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+}
+
+.export-group .btn + .btn {
+  border-left: 1px solid rgba(29, 78, 216, 0.18);
+}
+
+.export-group .btn:hover {
+  background: rgba(29, 78, 216, 0.1);
 }
 
 .workspace {
@@ -1062,12 +1085,32 @@ button:focus-visible {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 20px;
   background: var(--overlay-backdrop);
   backdrop-filter: blur(10px);
+}
+
+.dialog-overlay.is-open {
+  display: flex;
+}
+
+.confirm-message {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+.btn-danger {
+  color: #fff;
+  background: linear-gradient(135deg, var(--danger), #991b1b);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, #7f1d1d);
 }
 
 .share-poster-overlay {

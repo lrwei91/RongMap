@@ -8,3 +8,4 @@ data/locations.json
 data/backups/
 .env*.local
 .omx/
+.claude/

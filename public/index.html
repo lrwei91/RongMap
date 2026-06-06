@@ -4,30 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
-  <title>福州地点地图工具</title>
+  <title>福州地点地图</title>
+  <link rel="preconnect" href="https://webapi.amap.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="style.css">
   <script type="text/javascript">
     window._AMapSecurityConfig = {
       securityJsCode: 'db67e6113b81508f33ae7b14dbc42358'
     };
   </script>
-  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=806754933c281cf11a95842b5f9cef59"></script>
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=806754933c281cf11a95842b5f9cef59" defer></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="panel-header">
       <div class="header-copy">
-        <p class="eyebrow">FUZHOU MAP TOOL</p>
+        <p class="eyebrow">RONGMAP · 福州地点</p>
         <h1>福州地点地图</h1>
-        <p class="subtitle">先搜索，再保存，最后在地图里快速回看和定位。</p>
+        <p class="subtitle">收藏想去的地方，随时在地图上回看。</p>
       </div>
       <div class="stats" aria-label="地点统计信息">
         <div class="stat-card">
-          <span class="stat-label">地点总数</span>
+          <span class="stat-label">收藏</span>
           <strong id="locationCount">0</strong>
         </div>
         <div class="stat-card">
-          <span class="stat-label">已带坐标</span>
+          <span class="stat-label">已定位</span>
           <strong id="geocodedCount">0</strong>
         </div>
       </div>
@@ -35,9 +39,14 @@
         <button type="button" id="locateMeBtn" class="btn btn-primary locate-me-btn" title="获取我的当前位置">
           定位我
         </button>
-        <button type="button" id="exportBtn" class="btn btn-ghost" title="导出所有地点数据">
-          导出数据
-        </button>
+        <div class="export-group" role="group" aria-label="导出地点数据">
+          <button type="button" id="exportJsonBtn" class="btn btn-ghost" title="导出 JSON 格式">
+            导出 JSON
+          </button>
+          <button type="button" id="exportCsvBtn" class="btn btn-ghost" title="导出 CSV 格式">
+            导出 CSV
+          </button>
+        </div>
       </div>
     </header>
 
@@ -48,31 +57,26 @@
           <section class="card input-section mobile-sheet-card">
             <div class="mobile-sheet-bar mobile-only">
               <div class="mobile-sheet-grabber" aria-hidden="true"></div>
-              <button type="button" id="mobileAddCloseBtn" class="sheet-close" aria-label="关闭添加地址面板">&times;</button>
+              <button type="button" id="mobileAddCloseBtn" class="sheet-close" aria-label="关闭">&times;</button>
             </div>
             <div class="section-intro">
-              <p class="section-kicker">搜索并加入</p>
-              <h2>把想去的地方收进地图</h2>
+              <p class="section-kicker">加入地点</p>
+              <h2>把想去的地方搜进来</h2>
             </div>
-            <label for="singleInput">单条地址</label>
+            <label for="singleInput">地点</label>
             <div class="search-box">
-              <input type="text" id="singleInput" placeholder="例如：群哥水煮蛙 仓山万达店" autocomplete="off">
+              <input type="text" id="singleInput" placeholder="例如：群哥水煮蛙 仓山万达店" autocomplete="off" maxlength="120">
               <div id="searchSuggestions" class="search-suggestions"></div>
             </div>
             <label for="categorySelect">分类</label>
             <select id="categorySelect" class="category-select">
-              <option value="">选择分类（可选）</option>
-              <option value="food">餐饮美食</option>
+              <option value="food" selected>餐饮美食</option>
               <option value="spot">景点休闲</option>
-              <option value="shopping">购物消费</option>
-              <option value="traffic">交通枢纽</option>
-              <option value="medical">医疗服务</option>
-              <option value="education">教育培训</option>
-              <option value="other">其他</option>
+              <option value="cafe_bar">日咖夜酒</option>
             </select>
-            <label for="reasonInput">添加理由（可选）</label>
-            <input type="text" id="reasonInput" placeholder="例如：朋友推荐、想吃蛙">
-            <button type="button" id="addSingleBtn" class="btn btn-primary">添加并定位</button>
+            <label for="reasonInput">备注</label>
+            <input type="text" id="reasonInput" placeholder="例如：朋友推荐、想吃蛙" maxlength="240">
+            <button type="button" id="addSingleBtn" class="btn btn-primary">加入地图</button>
           </section>
         </div>
 
@@ -81,22 +85,25 @@
           <section class="card locations-section mobile-sheet-card">
             <div class="mobile-sheet-bar mobile-only">
               <div class="mobile-sheet-grabber" aria-hidden="true"></div>
-              <button type="button" id="mobileListCloseBtn" class="sheet-close" aria-label="关闭地点列表面板">&times;</button>
+              <button type="button" id="mobileListCloseBtn" class="sheet-close" aria-label="关闭">&times;</button>
             </div>
             <div class="section-head">
               <div>
-                <p class="section-kicker">地点列表</p>
-                <h2>已保存地点</h2>
-                <p id="listSummary" class="section-meta">0 个地点，0 个已带坐标</p>
+                <p class="section-kicker">收藏列表</p>
+                <h2>已收藏地点</h2>
+                <p id="listSummary" class="section-meta">暂无收藏</p>
               </div>
               <div class="mobile-list-toolbar mobile-only">
-                <button type="button" id="mobileExportBtn" class="btn btn-ghost" title="导出所有地点数据">
-                  导出数据
+                <button type="button" id="mobileExportJsonBtn" class="btn btn-ghost" title="导出 JSON 格式">
+                  JSON
+                </button>
+                <button type="button" id="mobileExportCsvBtn" class="btn btn-ghost" title="导出 CSV 格式">
+                  CSV
                 </button>
               </div>
             </div>
             <div class="list-filters" aria-label="地点检索与过滤">
-              <input type="search" id="locationSearchInput" class="list-search-input" placeholder="搜索名称、地址、备注">
+              <input type="search" id="locationSearchInput" class="list-search-input" placeholder="搜索已收藏的地点">
             </div>
             <div id="locationsList" class="locations-list" aria-live="polite"></div>
           </section>
@@ -106,14 +113,14 @@
       <main class="map-panel" aria-label="地图展示区">
         <div class="map-head">
           <div class="map-head-top">
-            <p class="map-note">点击地点卡片查看详情，地图与列表会保持高亮同步。</p>
+            <p class="map-note">点列表中的卡片查看详情，地图会自动定位。</p>
             <label class="map-filter" for="categoryFilterSelect">
               <select id="categoryFilterSelect" class="map-filter-select" aria-label="按分类筛选地点"></select>
             </label>
           </div>
           <div class="map-meta">
             <span id="viewportCount" class="map-chip">视野内 0</span>
-            <p id="viewportHint" class="map-hint">移动地图后会显示当前视野内的地点。</p>
+            <p id="viewportHint" class="map-hint">拖动地图查看该范围内的地点。</p>
           </div>
         </div>
         <div class="map-stage">
@@ -134,18 +141,18 @@
             </label>
           </div>
           <div class="mobile-chip-row">
-            <span id="mobileLocationSummary" class="map-chip">0 个地点 · 0 个已带坐标</span>
+            <span id="mobileLocationSummary" class="map-chip">暂无收藏</span>
             <span id="mobileViewportCount" class="map-chip">视野内 0</span>
           </div>
-          <p id="mobileViewportHint" class="mobile-overlay-hint">移动地图后会显示当前视野内的地点。</p>
+          <p id="mobileViewportHint" class="mobile-overlay-hint">拖动地图查看该范围内的地点。</p>
         </div>
       </main>
     </div>
 
     <div id="mobileActionDock" class="mobile-action-dock mobile-only" aria-label="移动端快捷操作">
-      <button type="button" id="mobileLocateBtn" class="mobile-dock-btn" title="获取我的当前位置">定位我</button>
-      <button type="button" id="mobileAddToggleBtn" class="mobile-dock-primary" aria-label="添加地址" aria-expanded="false">+</button>
-      <button type="button" id="mobileListToggleBtn" class="mobile-dock-btn" aria-label="打开地点列表" aria-expanded="false">地点列表</button>
+      <button type="button" id="mobileLocateBtn" class="mobile-dock-btn" title="定位我的位置">定位我</button>
+      <button type="button" id="mobileAddToggleBtn" class="mobile-dock-primary" aria-label="加入地点" aria-expanded="false">+</button>
+      <button type="button" id="mobileListToggleBtn" class="mobile-dock-btn" aria-label="查看收藏列表" aria-expanded="false">收藏</button>
     </div>
 
     <div id="detailDrawer" class="drawer-shell" aria-hidden="true">
@@ -154,10 +161,10 @@
         <div class="drawer-handle" aria-hidden="true"></div>
         <div class="drawer-header">
           <div class="drawer-heading">
-            <p class="section-kicker">地点详情</p>
+            <p class="section-kicker">详情</p>
             <h3 id="detailTitle">地点</h3>
           </div>
-          <button type="button" id="detailCloseBtn" class="dialog-close" aria-label="关闭详情">&times;</button>
+          <button type="button" id="detailCloseBtn" class="dialog-close" aria-label="关闭">&times;</button>
         </div>
         <div class="drawer-badges">
           <span id="detailCategory" class="category-badge detail-category" hidden></span>
@@ -165,11 +172,11 @@
         <div class="drawer-body">
           <section class="detail-section">
             <span class="detail-label">地址</span>
-            <p id="detailAddress" class="detail-text">未填写地址</p>
+            <p id="detailAddress" class="detail-text">暂无地址</p>
           </section>
           <section class="detail-section">
             <span class="detail-label">备注</span>
-            <p id="detailReason" class="detail-note detail-note-empty">还没有添加备注</p>
+            <p id="detailReason" class="detail-note detail-note-empty">暂无备注</p>
           </section>
           <div class="detail-grid">
             <section class="detail-section detail-cell">
@@ -177,17 +184,17 @@
               <p id="detailCoords" class="detail-text">未定位</p>
             </section>
             <section class="detail-section detail-cell">
-              <span class="detail-label">保存时间</span>
+              <span class="detail-label">添加时间</span>
               <p id="detailCreatedAt" class="detail-text">未知</p>
             </section>
           </div>
         </div>
         <div class="drawer-actions">
-          <button type="button" id="detailFocusBtn" class="btn btn-primary">地图聚焦</button>
-          <button type="button" id="detailNavigateBtn" class="btn btn-ghost">导航前往</button>
-          <button type="button" id="detailShareBtn" class="btn btn-ghost">分享地址</button>
-          <button type="button" id="detailEditBtn" class="btn btn-ghost">编辑地点</button>
-          <button type="button" id="detailDeleteBtn" class="btn btn-ghost btn-danger-ghost">删除地点</button>
+          <button type="button" id="detailFocusBtn" class="btn btn-primary">聚焦</button>
+          <button type="button" id="detailNavigateBtn" class="btn btn-ghost">去这里</button>
+          <button type="button" id="detailShareBtn" class="btn btn-ghost">分享</button>
+          <button type="button" id="detailEditBtn" class="btn btn-ghost">编辑</button>
+          <button type="button" id="detailDeleteBtn" class="btn btn-ghost btn-danger-ghost">删除</button>
         </div>
       </aside>
     </div>
@@ -198,50 +205,61 @@
         <div class="dialog-header">
           <div>
             <p class="section-kicker">分享海报</p>
-            <h3 id="sharePosterTitle">长按图片保存或转发</h3>
+            <h3 id="sharePosterTitle">右键或长按图片保存</h3>
           </div>
-          <button type="button" id="sharePosterCloseBtn" class="dialog-close" aria-label="关闭分享海报">&times;</button>
+          <button type="button" id="sharePosterCloseBtn" class="dialog-close" aria-label="关闭">&times;</button>
         </div>
         <div class="share-poster-preview-shell">
           <img id="sharePosterPreview" class="share-poster-preview" alt="地点分享海报">
         </div>
         <div class="share-poster-actions">
-          <button type="button" id="sharePosterCopyBtn" class="btn btn-ghost">复制高德链接</button>
+          <button type="button" id="sharePosterCopyBtn" class="btn btn-ghost">复制链接</button>
           <button type="button" id="sharePosterDoneBtn" class="btn btn-primary">完成</button>
         </div>
       </section>
     </div>
 
     <!-- 编辑对话框 -->
-    <div id="editDialog" class="dialog-overlay" style="display: none;">
-      <div class="dialog">
+    <div id="editDialog" class="dialog-overlay" aria-hidden="true">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle">
         <div class="dialog-header">
-          <h3>编辑地点</h3>
+          <h3 id="editDialogTitle">编辑</h3>
           <button type="button" id="editDialogCloseBtn" class="dialog-close" aria-label="关闭">&times;</button>
         </div>
         <div class="dialog-body">
           <input type="hidden" id="editLocationId">
           <label for="editName">名称</label>
-          <input type="text" id="editName">
+          <input type="text" id="editName" maxlength="120">
           <label for="editAddress">地址</label>
-          <input type="text" id="editAddress">
+          <input type="text" id="editAddress" maxlength="240">
           <label for="editCategory">分类</label>
           <select id="editCategory" class="category-select">
-            <option value="">无分类</option>
             <option value="food">餐饮美食</option>
             <option value="spot">景点休闲</option>
-            <option value="shopping">购物消费</option>
-            <option value="traffic">交通枢纽</option>
-            <option value="medical">医疗服务</option>
-            <option value="education">教育培训</option>
-            <option value="other">其他</option>
+            <option value="cafe_bar">日咖夜酒</option>
           </select>
-          <label for="editReason">理由</label>
-          <input type="text" id="editReason">
+          <label for="editReason">备注</label>
+          <input type="text" id="editReason" maxlength="240">
         </div>
         <div class="dialog-footer">
           <button type="button" id="cancelEditBtn" class="btn btn-ghost">取消</button>
-          <button type="button" id="saveEditBtn" class="btn btn-primary">保存修改</button>
+          <button type="button" id="saveEditBtn" class="btn btn-primary">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 删除确认对话框 -->
+    <div id="confirmDialog" class="dialog-overlay" aria-hidden="true">
+      <div class="dialog dialog-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
+        <div class="dialog-header">
+          <h3 id="confirmDialogTitle">请确认</h3>
+        </div>
+        <div class="dialog-body">
+          <p id="confirmDialogMessage" class="confirm-message">确认此操作？</p>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" id="confirmDialogCancelBtn" class="btn btn-ghost">取消</button>
+          <button type="button" id="confirmDialogOkBtn" class="btn btn-primary btn-danger">确认</button>
         </div>
       </div>
     </div>

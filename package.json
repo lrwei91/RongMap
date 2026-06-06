@@ -1,7 +1,7 @@
 {
-  "name": "fuzhou-map",
+  "name": "rongmap",
   "version": "1.0.0",
-  "description": "福州地区地图标记应用",
+  "description": "RongMap 福州地点地图工具",
   "scripts": {
     "backup:kv": "node scripts/backup-kv.js"
   },
