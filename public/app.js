@@ -24,7 +24,7 @@ const SHARE_QR_SIZE = 4 * SHARE_QR_VERSION + 17;
 const CATEGORIES = {
   food: { label: '餐饮美食', color: '#ef4444' },
   spot: { label: '景点休闲', color: '#10b981' },
-  cafe_bar: { label: '日咖夜酒', color: '#8b5cf6' }
+  cafe_bar: { label: '日咖夜酒', color: '#8b5cf6', shortLabel: '酒' }
 };
 
 const CATEGORY_ALIASES = {
@@ -1436,7 +1436,7 @@ function getCategoryLabel(category) {
 function createMarkerIcon(category, isActive) {
   const fallbackCategory = CATEGORIES.food;
   const color = category.color || fallbackCategory.color;
-  const label = escapeHtml((category.label || fallbackCategory.label).slice(0, 1));
+  const label = escapeHtml(category.shortLabel || (category.label || fallbackCategory.label).slice(0, 1));
   const stroke = isActive ? '#dbeafe' : '#ffffff';
   const shadow = isActive ? '#1d4ed833' : '#0f172a33';
   const svg = `
