@@ -257,6 +257,7 @@ h3 {
 .workspace {
   display: grid;
   grid-template-columns: minmax(340px, 390px) minmax(0, 1fr);
+  align-items: start;
   gap: 20px;
   flex: 1;
   min-height: 0;
@@ -718,6 +719,15 @@ button:focus-visible {
   overflow: hidden;
   border-radius: var(--radius-card);
   background: var(--color-surface-subtle);
+}
+
+@media (min-width: 901px) {
+  .map-panel {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    height: clamp(620px, calc(100dvh - 48px), 820px);
+  }
 }
 
 .map-head {
