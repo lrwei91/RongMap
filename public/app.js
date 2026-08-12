@@ -22,9 +22,9 @@ const SHARE_QR_SIZE = 4 * SHARE_QR_VERSION + 17;
 
 // 分类配置
 const CATEGORIES = {
-  food: { label: '餐饮美食', color: '#ef4444' },
-  spot: { label: '景点休闲', color: '#10b981' },
-  cafe_bar: { label: '日咖夜酒', color: '#8b5cf6', shortLabel: '酒' }
+  food: { label: '餐饮美食', color: '#1a1a1a' },
+  spot: { label: '景点休闲', color: '#2e6f4e' },
+  cafe_bar: { label: '日咖夜酒', color: '#8a6410', shortLabel: '酒' }
 };
 
 const CATEGORY_ALIASES = {
@@ -479,14 +479,26 @@ function fillWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
 }
 
 function drawMapFallback(ctx, loc) {
-  const gradient = ctx.createLinearGradient(0, 0, SHARE_POSTER_WIDTH, SHARE_MAP_HEIGHT);
-  gradient.addColorStop(0, '#dbeafe');
-  gradient.addColorStop(1, '#dcfce7');
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = '#f9f0d8';
   ctx.fillRect(0, 0, SHARE_POSTER_WIDTH, SHARE_MAP_HEIGHT);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.72)';
-  ctx.lineWidth = 12;
+  ctx.strokeStyle = 'rgba(26, 26, 26, 0.1)';
+  ctx.lineWidth = 2;
+  for (let x = 0; x <= SHARE_POSTER_WIDTH; x += 64) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, SHARE_MAP_HEIGHT);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= SHARE_MAP_HEIGHT; y += 64) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(SHARE_POSTER_WIDTH, y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.lineWidth = 16;
   for (let i = -1; i < 6; i += 1) {
     ctx.beginPath();
     ctx.moveTo(-80, 120 + i * 86);
@@ -495,7 +507,7 @@ function drawMapFallback(ctx, loc) {
     ctx.stroke();
   }
 
-  ctx.fillStyle = '#ef4444';
+  ctx.fillStyle = '#1a1a1a';
   ctx.beginPath();
   ctx.arc(SHARE_POSTER_WIDTH / 2, SHARE_MAP_HEIGHT / 2 - 18, 28, 0, Math.PI * 2);
   ctx.fill();
@@ -505,7 +517,7 @@ function drawMapFallback(ctx, loc) {
   ctx.lineTo(SHARE_POSTER_WIDTH / 2 + 18, SHARE_MAP_HEIGHT / 2 + 10);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#ffe28a';
   ctx.font = '700 18px Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText((loc.name || '地点').slice(0, 1), SHARE_POSTER_WIDTH / 2, SHARE_MAP_HEIGHT / 2 - 10);
@@ -743,7 +755,7 @@ function drawQrCode(ctx, text, x, y, size) {
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(x, y, size, size);
-  ctx.fillStyle = '#111827';
+  ctx.fillStyle = '#1a1a1a';
   modules.forEach((row, rowIndex) => {
     row.forEach((dark, colIndex) => {
       if (!dark) return;
@@ -789,15 +801,15 @@ function formatSharePoiRows(loc, poiInfo) {
 }
 
 function drawInfoChip(ctx, label, value, x, y, width) {
-  ctx.fillStyle = '#f8fafc';
+  ctx.fillStyle = '#f7f7f3';
   drawRoundedRect(ctx, x, y, width, 72, 16);
   ctx.fill();
 
-  ctx.fillStyle = '#64748b';
+  ctx.fillStyle = '#555555';
   ctx.font = '700 17px Arial, sans-serif';
   ctx.fillText(label, x + 18, y + 25);
 
-  ctx.fillStyle = '#334155';
+  ctx.fillStyle = '#1a1a1a';
   ctx.font = '600 21px Arial, sans-serif';
   fillWrappedText(ctx, value, x + 18, y + 57, width - 36, 25, 1);
 }
@@ -812,20 +824,20 @@ function drawSharePosterInfo(ctx, loc, payload, poiInfo) {
   drawRoundedRect(ctx, 34, SHARE_MAP_HEIGHT - 56, SHARE_POSTER_WIDTH - 68, 590, 30);
   ctx.fill();
 
-  ctx.fillStyle = '#182334';
+  ctx.fillStyle = '#1a1a1a';
   ctx.font = '700 54px Arial, sans-serif';
   y = fillWrappedText(ctx, loc.name || '地点', left, y, maxWidth, 60, 2) + 22;
 
-  ctx.fillStyle = '#5d6b7f';
+  ctx.fillStyle = '#555555';
   ctx.font = '400 28px Arial, sans-serif';
   y = fillWrappedText(ctx, loc.address || '暂无地址', left, y, maxWidth, 38, 2) + 30;
 
-  ctx.fillStyle = '#182334';
+  ctx.fillStyle = '#1a1a1a';
   ctx.font = '700 26px Arial, sans-serif';
   ctx.fillText('备注', left, y);
   y += 40;
 
-  ctx.fillStyle = '#5d6b7f';
+  ctx.fillStyle = '#555555';
   ctx.font = '400 25px Arial, sans-serif';
   y = fillWrappedText(ctx, loc.reason || '暂无备注', left, y, maxWidth, 36, 2) + 28;
 
@@ -837,7 +849,7 @@ function drawSharePosterInfo(ctx, loc, payload, poiInfo) {
     drawInfoChip(ctx, row.label, row.value, chipX, chipY, chipWidth);
   });
 
-  ctx.fillStyle = '#f8fafc';
+  ctx.fillStyle = '#f7f7f3';
   drawRoundedRect(ctx, 34, 1060, SHARE_POSTER_WIDTH - 68, 290, 30);
   ctx.fill();
 
@@ -846,10 +858,10 @@ function drawSharePosterInfo(ctx, loc, payload, poiInfo) {
   const qrY = 1096;
   drawQrCode(ctx, payload.url, qrX, qrY, qrSize);
 
-  ctx.fillStyle = '#182334';
+  ctx.fillStyle = '#1a1a1a';
   ctx.font = '700 36px Arial, sans-serif';
   ctx.fillText('扫码打开高德导航', 340, 1134);
-  ctx.fillStyle = '#5d6b7f';
+  ctx.fillStyle = '#555555';
   ctx.font = '400 25px Arial, sans-serif';
   fillWrappedText(ctx, '识别二维码后可直接跳转到该地点的高德导航页面。', 340, 1186, 440, 38, 3);
 }
@@ -860,7 +872,7 @@ async function createSharePoster(loc, payload) {
   canvas.height = SHARE_POSTER_HEIGHT;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#edf1f5';
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, SHARE_POSTER_WIDTH, SHARE_POSTER_HEIGHT);
 
   const [mapImage, poiInfo] = await Promise.all([
@@ -1174,15 +1186,8 @@ function areSetsEqual(left, right) {
 
 function showToast(message, type = 'info') {
   ui.toast.textContent = message;
+  ui.toast.dataset.type = type;
   ui.toast.classList.add('show');
-
-  if (type === 'error') {
-    ui.toast.style.background = '#7f1d1d';
-  } else if (type === 'success') {
-    ui.toast.style.background = '#14532d';
-  } else {
-    ui.toast.style.background = '#0f172a';
-  }
 
   if (toastTimer) {
     clearTimeout(toastTimer);
@@ -1437,8 +1442,8 @@ function createMarkerIcon(category, isActive) {
   const fallbackCategory = CATEGORIES.food;
   const color = category.color || fallbackCategory.color;
   const label = escapeHtml(category.shortLabel || (category.label || fallbackCategory.label).slice(0, 1));
-  const stroke = isActive ? '#dbeafe' : '#ffffff';
-  const shadow = isActive ? '#1d4ed833' : '#0f172a33';
+  const stroke = isActive ? '#ffe28a' : '#ffffff';
+  const shadow = isActive ? '#1a1a1a55' : '#1a1a1a33';
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44">
       <filter id="shadow" x="-40%" y="-25%" width="180%" height="160%">
@@ -1754,7 +1759,7 @@ function renderLocationsList() {
     const inViewClass = visibleLocationIds.has(loc.id) ? 'is-in-view' : '';
     const category = CATEGORIES[loc.category];
     const categoryBadge = category
-      ? `<span class="category-badge" style="--badge-color:${category.color};background:${category.color}14;border-color:${category.color}26;color:${category.color};">${escapeHtml(getCategoryLabel(loc.category))}</span>`
+      ? `<span class="category-badge category-badge--${escapeHtml(loc.category)}">${escapeHtml(getCategoryLabel(loc.category))}</span>`
       : '';
     const sourceBadge = `<span class="source-badge">${escapeHtml(getSourceLabel(getLocationSourceType(loc)))}</span>`;
     const revealLabel = hasCoords ? '聚焦' : '未定位';
@@ -1859,13 +1864,11 @@ function syncDetailDrawer() {
 
   if (category) {
     ui.detailCategory.hidden = false;
+    ui.detailCategory.className = `category-badge detail-category category-badge--${loc.category}`;
     ui.detailCategory.textContent = category.label;
-    ui.detailCategory.style.setProperty('--badge-color', category.color);
-    ui.detailCategory.style.background = `${category.color}14`;
-    ui.detailCategory.style.borderColor = `${category.color}26`;
-    ui.detailCategory.style.color = category.color;
   } else {
     ui.detailCategory.hidden = true;
+    ui.detailCategory.className = 'category-badge detail-category';
     ui.detailCategory.textContent = '';
   }
 
@@ -1999,9 +2002,9 @@ function renderMyLocationMarker(locationData) {
   });
 
   const detailLines = [
-    '<strong style="font-size:14px;color:#182334;">我的位置</strong>',
-    Number.isFinite(accuracy) ? `<p style="margin:8px 0 0;font-size:12px;color:#5d6b7f;">精度：约${Math.round(accuracy)}米</p>` : '',
-    address ? `<p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:#5d6b7f;">${escapeHtml(address)}</p>` : ''
+    '<strong style="font-size:14px;color:#1a1a1a;">我的位置</strong>',
+    Number.isFinite(accuracy) ? `<p style="margin:8px 0 0;font-size:12px;color:#555555;">精度：约${Math.round(accuracy)}米</p>` : '',
+    address ? `<p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:#555555;">${escapeHtml(address)}</p>` : ''
   ].filter(Boolean).join('');
 
   myLocationInfoWindow = new AMap.InfoWindow({

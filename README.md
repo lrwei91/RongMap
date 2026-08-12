@@ -2,6 +2,10 @@
 
 基于高德地图的福州地点收藏与分享工具。手动搜索添加、AI 对话录入，地点数据存放在 Vercel KV。
 
+## 视觉规范
+
+前端按项目最新白纸油墨编辑风改版：白纸、黑墨、荧光黄、32px 细网格、细边框和清晰的地图—列表工作区。具体设计判断、保留/淘汰项、偏离说明和验收矩阵见 [`docs/design-brief.md`](docs/design-brief.md)。
+
 ## Vercel 部署
 
 ```bash
@@ -92,6 +96,8 @@ RongMap/
 │   ├── index.html
 │   ├── app.js
 │   └── style.css
+├── docs/
+│   └── design-brief.md           # 美术改版判断与验收矩阵
 ├── scripts/
 │   └── backup-kv.js              # KV 备份脚本
 ├── vercel.json
