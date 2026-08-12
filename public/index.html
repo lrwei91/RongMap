@@ -122,7 +122,15 @@
           </div>
         </div>
         <div class="map-stage">
-          <div id="map"></div>
+          <div id="map" aria-label="福州地点地图"></div>
+          <div id="mapStatus" class="map-status" role="status" aria-live="polite">
+            <div class="map-status-card">
+              <span class="map-status-mark" aria-hidden="true">⌖</span>
+              <p id="mapStatusTitle" class="map-status-title">地图加载中</p>
+              <p id="mapStatusMessage" class="map-status-message">正在连接高德地图，收藏列表仍可正常使用。</p>
+              <button type="button" id="mapRetryBtn" class="btn btn-primary" hidden>重新加载地图</button>
+            </div>
+          </div>
           <div id="mobileZoomControls" class="mobile-zoom-controls mobile-only" aria-label="地图缩放">
             <button type="button" id="mobileZoomInBtn" class="mobile-zoom-btn" aria-label="放大地图">
               <span aria-hidden="true">＋</span>

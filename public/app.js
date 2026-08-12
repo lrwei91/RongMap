@@ -57,6 +57,7 @@ let isListSheetOpen = false;
 let activeCategoryFilter = 'all';
 let activeSearchKeyword = '';
 let currentSharePoster = null;
+let mapInitTimer = null;
 
 let ui = {};
 
@@ -71,28 +72,78 @@ let lastViewportWidth = window.innerWidth;
 let lastIsMobileLayout = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
 let lastOrientation = window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait';
 
+function setMapStatus(state, message = '') {
+  if (!ui.mapStatus) return;
+
+  const copy = {
+    loading: ['地图加载中', '正在连接高德地图，收藏列表仍可正常使用。'],
+    error: ['地图暂未加载', '地图服务连接失败。你仍可搜索、管理、导出收藏，并可稍后重试。']
+  };
+  const [title, defaultMessage] = copy[state] || ['', ''];
+
+  ui.mapStatusTitle.textContent = title;
+  ui.mapStatusMessage.textContent = message || defaultMessage;
+  ui.mapStatus.classList.toggle('is-hidden', state === 'ready');
+  ui.mapStatus.dataset.state = state;
+  ui.mapRetryBtn.hidden = state !== 'error';
+  ui.mobileZoomInBtn.disabled = state !== 'ready';
+  ui.mobileZoomOutBtn.disabled = state !== 'ready';
+}
+
 function initMap(callback) {
-  // 延迟创建地图，确保 PC 模式下 CSS grid 布局已完全稳定
-  setTimeout(() => {
-    map = new AMap.Map('map', {
-      zoom: 12,
-      center: FUZHOU_CENTER,
-      viewMode: '2D',
-      resizeEnable: true,
-      zoomControl: true,
-      scale: true
-    });
+  if (mapInitTimer) clearTimeout(mapInitTimer);
+  setMapStatus('loading');
+  const startedAt = Date.now();
 
-    initSearchServices();
-    initGeolocationService();
-    bindMapEvents();
-    triggerMapResize();
+  // 给异步 SDK 足够的加载时间；网络失败时保留完整的列表管理能力。
+  const attemptInit = () => {
+    if (!window.AMap || typeof AMap.Map !== 'function') {
+      if (Date.now() - startedAt < 8000) {
+        mapInitTimer = setTimeout(attemptInit, 160);
+        return;
+      }
 
-    setTimeout(() => {
+      mapInitTimer = null;
+      console.error('初始化地图失败: 高德地图 SDK 未就绪');
+      setMapStatus('error');
+      refreshViewportState(true);
+      if (callback) callback(false);
+      return;
+    }
+
+    mapInitTimer = null;
+    try {
+      map = new AMap.Map('map', {
+        zoom: 12,
+        center: FUZHOU_CENTER,
+        viewMode: '2D',
+        resizeEnable: true,
+        zoomControl: true,
+        scale: true
+      });
+
+      initSearchServices();
+      initGeolocationService();
+      bindMapEvents();
+      setMapStatus('ready');
+      renderMarkers();
       triggerMapResize();
-      if (callback) callback();
-    }, 100);
-  }, 500);
+
+      setTimeout(() => {
+        triggerMapResize();
+        if (callback) callback(true);
+      }, 100);
+    } catch (err) {
+      console.error('初始化地图失败:', err);
+      map = null;
+      setMapStatus('error');
+      refreshViewportState(true);
+      if (callback) callback(false);
+    }
+  };
+
+  // 延迟首轮创建，确保桌面 CSS Grid 已经完成布局。
+  mapInitTimer = setTimeout(attemptInit, 320);
 }
 
 function initSearchServices() {
@@ -217,6 +268,10 @@ function initUI() {
     mobileExportCsvBtn: document.getElementById('mobileExportCsvBtn'),
     mobileZoomInBtn: document.getElementById('mobileZoomInBtn'),
     mobileZoomOutBtn: document.getElementById('mobileZoomOutBtn'),
+    mapStatus: document.getElementById('mapStatus'),
+    mapStatusTitle: document.getElementById('mapStatusTitle'),
+    mapStatusMessage: document.getElementById('mapStatusMessage'),
+    mapRetryBtn: document.getElementById('mapRetryBtn'),
     toast: document.getElementById('toast'),
     searchSuggestions: document.getElementById('searchSuggestions'),
     locateMeBtn: document.getElementById('locateMeBtn'),
@@ -1043,13 +1098,30 @@ function syncMobileSheetState() {
 
   if (ui.mobileAddSheet) {
     ui.mobileAddSheet.classList.toggle('is-open', isAddSheetOpen);
-    // 桌面布局下 mobile sheet 对屏读用户也是不可见的（CSS 隐藏/占位）
-    ui.mobileAddSheet.setAttribute('aria-hidden', String(!mobileActive || !isAddSheetOpen));
+    ui.mobileAddSheet.setAttribute('aria-hidden', String(mobileActive ? !isAddSheetOpen : false));
+    if (mobileActive) {
+      ui.mobileAddSheet.setAttribute('role', 'dialog');
+      ui.mobileAddSheet.setAttribute('aria-modal', String(isAddSheetOpen));
+      ui.mobileAddSheet.setAttribute('aria-label', '加入地点');
+    } else {
+      ui.mobileAddSheet.removeAttribute('role');
+      ui.mobileAddSheet.removeAttribute('aria-modal');
+      ui.mobileAddSheet.removeAttribute('aria-label');
+    }
   }
 
   if (ui.mobileListSheet) {
     ui.mobileListSheet.classList.toggle('is-open', isListSheetOpen);
-    ui.mobileListSheet.setAttribute('aria-hidden', String(!mobileActive || !isListSheetOpen));
+    ui.mobileListSheet.setAttribute('aria-hidden', String(mobileActive ? !isListSheetOpen : false));
+    if (mobileActive) {
+      ui.mobileListSheet.setAttribute('role', 'dialog');
+      ui.mobileListSheet.setAttribute('aria-modal', String(isListSheetOpen));
+      ui.mobileListSheet.setAttribute('aria-label', '收藏列表');
+    } else {
+      ui.mobileListSheet.removeAttribute('role');
+      ui.mobileListSheet.removeAttribute('aria-modal');
+      ui.mobileListSheet.removeAttribute('aria-label');
+    }
   }
 
   if (ui.mobileAddToggleBtn) {
@@ -1132,6 +1204,7 @@ function openMobileListSheet() {
   syncMobileSheetState();
 
   window.requestAnimationFrame(() => {
+    ui.locationSearchInput.focus();
     triggerMapResize();
   });
 }
@@ -1150,6 +1223,11 @@ function closeMobileListSheet(options = {}) {
 function centerMapOnLocation(loc, zoom = 16, options = {}) {
   if (!hasCoordinates(loc)) {
     showToast('该地点还未定位', 'error');
+    return false;
+  }
+
+  if (!map) {
+    showToast('地图服务尚未加载，请稍后重试', 'error');
     return false;
   }
 
@@ -1981,6 +2059,10 @@ function mapBrowserLocateError(error) {
 function renderMyLocationMarker(locationData) {
   const { latitude, longitude, accuracy, address } = locationData;
 
+  if (!map || !window.AMap) {
+    throw createLocateError('unavailable', '已获取位置，但地图服务尚未加载');
+  }
+
   if (myLocationMarker) {
     myLocationMarker.setMap(null);
   }
@@ -2579,6 +2661,16 @@ function handleGlobalKeydown(event) {
 
   if (ui.detailDrawer.classList.contains('is-open')) {
     trapFocusInContainer(ui.detailDrawer, event);
+    return;
+  }
+
+  if (isAddSheetOpen) {
+    trapFocusInContainer(ui.mobileAddSheet, event);
+    return;
+  }
+
+  if (isListSheetOpen) {
+    trapFocusInContainer(ui.mobileListSheet, event);
   }
 }
 
@@ -2680,6 +2772,8 @@ function bindEvents() {
   if (ui.mobileZoomOutBtn) {
     ui.mobileZoomOutBtn.addEventListener('click', () => zoomMobileMap('out'));
   }
+
+  ui.mapRetryBtn.addEventListener('click', () => initMap());
 
   updateMobileZoomControls();
 
@@ -2800,8 +2894,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initUI();
   initializeCategoryFilterControls();
   syncMobileSheetState();
-  initMap(() => {
-    bindEvents();
-    loadLocations();
-  });
+  bindEvents();
+  loadLocations();
+  initMap();
 });
