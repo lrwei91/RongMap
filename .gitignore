@@ -1,10 +1,14 @@
 node_modules
+dist
+test-results
+playwright-report
 .vercel
 .DS_Store
 *.log
 .env
 .env.local
 data/locations.json
+data/locations.local.json
 data/backups/
 .env*.local
 .omx/

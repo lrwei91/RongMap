@@ -1,105 +1,90 @@
 # RongMap
 
-基于高德地图的福州地点收藏与分享工具。手动搜索添加、AI 对话录入，地点数据存放在 Vercel KV。
+RongMap 是面向亲友共享的福州地点地图工作台。成员可以共同收藏、筛选、批量整理和恢复地点，管理员可以邀请成员并创建可撤销的只读地图链接。
 
-## 视觉规范
+## 产品结构
 
-前端按项目最新白纸油墨编辑风改版：白纸、黑墨、荧光黄、32px 细网格、细边框和清晰的地图—列表工作区。具体设计判断、保留/淘汰项、偏离说明和验收矩阵见 [`docs/design-brief.md`](docs/design-brief.md)。
+- `/app/map`：三栏地图工作台，地点列表自然滚动，地图保持固定尺寸。
+- `/app/locations`：全量地点、组合筛选、排序和批量操作。
+- `/app/activity`：成员活动记录。
+- `/app/trash`：30天回收站。
+- `/app/share-links`：管理员只读链接管理。
+- `/app/settings`：成员邀请和自定义标签。
+- `/share/:token`：无需登录的只读共享地图。
+- `/auth/*`：受邀成员魔法链接登录。
 
-## Vercel 部署
+前端使用 React + Vite；生产认证、数据库和实时更新使用 Supabase；Vercel 继续托管前端与 Serverless API。原有 Vercel KV 读取在迁移窗口内保留兼容。
+
+## 本地开发
 
 ```bash
-npm install -g vercel
-vercel login
-vercel          # 首次部署，按提示设置项目名称
-vercel --prod   # 生产环境部署
+npm install
+npm run dev
 ```
 
-### KV 数据库
+仅开发 UI 时，可以使用 Playwright route mock 或将 `RONGMAP_REMOTE_FIRST=0` 写入本地环境；未配置 KV 的非生产环境会使用忽略提交的 `data/locations.local.json`。
 
-1. Vercel Dashboard → 项目 → **Storage** → 创建 **KV** 数据库
-2. 环境变量会自动注入（`KV_URL`、`KV_REST_API_TOKEN` 等）
+完整 API 联调可另开终端运行：
 
-> 备注：Vercel 官方已将 `@vercel/kv` 标记为 deprecated，迁移到 Vercel Marketplace → Upstash Redis integration 后，代码无需改动（`@vercel/kv` 在 Upstash 提供的 KV 实例上仍可继续工作）。
+```bash
+vercel dev
+```
 
-### 环境变量
+Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 
-| 变量 | 说明 |
-|------|------|
-| `AMAP_WEB_SERVICE_KEY` | 高德 Web 服务 API Key（用于 `/api/share-map`、`/api/share-poi`）。留空则使用代码内置默认值，建议部署时覆盖 |
-| `OPENCLAW_SHARED_SECRET` | AI 录入接口的 Bearer Token。`/api/openclaw/*` 鉴权使用，部署时必填 |
+## 环境变量
 
-> 前端 JS API Key（`AMAP_WEB_*`）和 Security Code 在 `public/index.html` 中硬编码，如需更换请同步修改。
+复制 `.env.example` 为 `.env.local`，按部署环境填写：
 
-### KV 本地备份
+| 变量 | 用途 |
+| --- | --- |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | 浏览器认证和实时订阅 |
+| `SUPABASE_URL` / `SUPABASE_SECRET_KEY` | Serverless 管理客户端；Secret 只放服务端 |
+| `INITIAL_ADMIN_EMAIL` | 默认空间首位管理员邮箱 |
+| `RONGMAP_DEFAULT_SPACE_ID` | OpenClaw 和迁移脚本使用的默认空间 |
+| `SITE_URL` | 邀请邮件回跳地址 |
+| `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；应在高德控制台限制允许域名 |
+| `AMAP_WEB_SERVICE_KEY` | 搜索、静态地图和 POI 服务端接口 |
+| `OPENCLAW_SHARED_SECRET` | AI 录入接口 Bearer Token |
+
+仓库不再包含任何高德密钥默认值。已有密钥应完成轮换并设置域名、来源和配额限制。
+
+## Supabase 初始化与迁移
+
+1. 在 Supabase SQL Editor 执行 `supabase/migrations/20260812_shared_spaces.sql`。
+2. 在 Auth 中创建与 `INITIAL_ADMIN_EMAIL` 相同的首位用户。
+3. 在维护窗口冻结旧系统写入并执行 KV 备份。
+4. 设置服务端环境变量后运行：
 
 ```bash
 npm run backup:kv
+npm run migrate:shared
 ```
 
-将云端 `locations` 数据同步到 `data/backups/`。脚本支持两种数据源：有 `KV_REST_API_*` 环境变量时直连 KV；否则通过 `vercel curl` 抓取最新 Ready 部署的 `/api/locations`。
+迁移脚本会创建默认共享空间、管理员成员关系，并保留旧地点的名称、地址、分类、坐标、备注、来源和创建时间。切换生产流量前核对输出的 `spaceId` 和迁移条数。
 
-## API 端点
+## API v2
 
-| Method | Path | 说明 |
-|--------|------|------|
-| GET | `/api/locations` | 获取所有地点 |
-| POST | `/api/locations` | 新增地点（手动 / 搜索结果） |
-| PUT | `/api/locations?id=xxx` | 更新地点（含编辑、坐标） |
-| DELETE | `/api/locations?id=xxx` | 删除地点 |
-| POST | `/api/search` | 高德地点搜索（前端降级用） |
-| GET | `/api/share-map` | 高德静态地图（分享海报用） |
-| GET | `/api/share-poi` | 高德 POI 详情（评分、营业时间等） |
-| POST | `/api/openclaw/locations/intake` | AI 录入入口（需 Bearer Token） |
-| POST | `/api/openclaw/locations/confirm` | AI 二次确认后落库（需 Bearer Token） |
+| 路径 | 能力 |
+| --- | --- |
+| `GET /api/v2/bootstrap` | 当前空间、成员、地点、标签、活动、回收站和链接 |
+| `/api/v2/locations` | 创建、版本化更新和软删除地点 |
+| `/api/v2/trash` | 恢复和管理员永久清理 |
+| `POST /api/v2/bulk` | 批量标签和移入回收站 |
+| `/api/v2/import-preview` / `import-commit` | 导入预览与提交 |
+| `/api/v2/tags` / `members` | 标签和邀请管理 |
+| `/api/v2/share-links` / `public-share` | 创建、撤销和读取只读链接 |
 
-### 地点字段
+已配置 Supabase 时，私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。
 
-| 字段 | 说明 |
-|------|------|
-| `id` | 地点唯一 ID |
-| `name` | 名称 |
-| `address` | 地址 |
-| `latitude` / `longitude` | 坐标，可为 `null`（待定位） |
-| `category` | `food` 餐饮美食 / `spot` 景点休闲 / `cafe_bar` 日咖夜酒 |
-| `reason` | 添加理由（可选） |
-| `sourceType` | `manual` / `text` / `map_location` / `douyin_url` / `video` |
-| `sourceId` | 高德 POI ID（用于去重） |
-| `createdAt` | ISO 8601 时间戳 |
+旧 `/api/locations` 与 OpenClaw 路径在迁移发布周期内继续工作；OpenClaw 通过 `RONGMAP_DEFAULT_SPACE_ID` 路由默认空间。
 
-### 去重规则
+## 验证
 
-1. `sourceId` 完全匹配
-2. 规范化后的 `name + address` 完全匹配
-3. 名称相同 + 地址子串兼容（任一方 ≥ 8 字符）
-4. 坐标距离 ≤ 20 米 + 名称完全相同 + 地址/行政区兼容
-
-## 项目结构
-
+```bash
+npm run check       # 服务端语法 + Vite生产构建
+npm test            # 纯函数单元测试
+npm run test:e2e    # Playwright共享工作台关键流程
 ```
-RongMap/
-├── api/                          # Vercel Serverless 函数
-│   ├── locations.js              # 地点 CRUD
-│   ├── search.js                 # 高德搜索代理
-│   ├── share-map.js              # 静态地图
-│   ├── share-poi.js              # POI 详情
-│   └── openclaw/locations/       # AI 录入 / 确认
-├── lib/                          # 共享工具
-│   ├── amap.js                   # 高德客户端 + 城市/分类规则
-│   ├── location-category.js      # 分类标准化
-│   ├── location-coordinates.js   # 坐标校验 + 距离
-│   ├── location-duplicate.js     # 去重规则
-│   ├── location-intake.js        # AI 录入管道
-│   ├── location-record.js        # 地点 record 构建
-│   └── locations-storage.js      # KV 存储封装
-├── public/                       # 前端资源
-│   ├── index.html
-│   ├── app.js
-│   └── style.css
-├── docs/
-│   └── design-brief.md           # 美术改版判断与验收矩阵
-├── scripts/
-│   └── backup-kv.js              # KV 备份脚本
-├── vercel.json
-└── package.json
-```
+
+视觉验收覆盖 320、390、768、1024、1440 CSS px、移动横屏、200%字体和 `prefers-reduced-motion`。真实高德地图、Supabase邮件、Realtime 和 Vercel生产路由需在预览部署环境完成最终验收。

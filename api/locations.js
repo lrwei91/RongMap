@@ -1,8 +1,22 @@
 const storage = require('../lib/locations-storage');
-const { applyLocationUpdates, buildLocationRecord } = require('../lib/location-record');
+const { applyLocationUpdates } = require('../lib/location-record');
+const sharedStore = require('../lib/shared-store');
+const { getRequestIdentity, getSupabaseAdmin } = require('../lib/server-supabase');
 
 module.exports = async function handler(req, res) {
   try {
+    res.setHeader('Deprecation', 'true');
+    res.setHeader('Sunset', 'Wed, 30 Sep 2026 00:00:00 GMT');
+    res.setHeader('Link', '</api/v2/locations>; rel="successor-version"');
+
+    if (getSupabaseAdmin()) {
+      const identity = await getRequestIdentity(req);
+      if (req.method === 'GET') return res.status(200).json((await sharedStore.bootstrap(identity)).locations);
+      if (req.method === 'POST') return res.status(200).json(await sharedStore.createLocation(identity, req.body || {}));
+      if (req.method === 'PUT') return res.status(200).json(await sharedStore.updateLocation(identity, req.query.id, req.body || {}));
+      if (req.method === 'DELETE') { await sharedStore.softDelete(identity, req.query.id); return res.status(200).json({ success: true }); }
+    }
+
     if (req.method === 'GET') {
       const locations = await storage.getLocations();
       return res.status(200).json(locations);
@@ -15,18 +29,14 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: '名称和地址不能为空' });
       }
 
-      const locations = await storage.getLocations();
-      const newLocation = buildLocationRecord({
+      const result = await storage.createLocation({
         ...req.body,
         sourceType: req.body.sourceType || 'manual',
         sourcePlatform: req.body.sourcePlatform || 'web',
         createdBy: req.body.createdBy || 'user'
       });
-
-      locations.push(newLocation);
-      await storage.saveLocations(locations);
-
-      return res.status(200).json(newLocation);
+      if (!result.success) return res.status(409).json({ error: result.message, existing: result.existing });
+      return res.status(200).json(result.location);
     }
 
     if (req.method === 'PUT') {
@@ -62,6 +72,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: '方法不允许' });
   } catch (err) {
     console.error('handler error:', err);
-    return res.status(500).json({ error: '服务器错误：' + err.message });
+    const status = err.status || 500;
+    return res.status(status).json({ error: status >= 500 ? '服务器暂时不可用' : err.message });
   }
 };

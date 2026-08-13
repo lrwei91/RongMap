@@ -1,11 +1,29 @@
 {
   "name": "rongmap",
-  "version": "1.0.0",
-  "description": "RongMap 福州地点地图工具",
+  "version": "2.0.0",
+  "private": true,
+  "description": "RongMap 亲友共享地点地图工作台",
   "scripts": {
-    "backup:kv": "node scripts/backup-kv.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/check-project.js",
+    "test": "vitest run src lib api",
+    "test:e2e": "playwright test",
+    "backup:kv": "node scripts/backup-kv.js",
+    "migrate:shared": "node scripts/migrate-shared-data.js"
   },
   "dependencies": {
-    "@vercel/kv": "^3.0.0"
+    "@supabase/supabase-js": "^2.57.4",
+    "@vercel/kv": "^3.0.0",
+    "dotenv": "^17.4.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.2",
+    "@playwright/test": "^1.55.0",
+    "vite": "^7.1.5",
+    "vitest": "^3.2.4"
   }
 }

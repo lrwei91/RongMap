@@ -1,5 +1,4 @@
-const https = require('https');
-const { AMAP_WEB_SERVICE_KEY } = require('../lib/amap');
+const { requestAmap } = require('../lib/amap');
 
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -7,42 +6,6 @@ function normalizeText(value) {
 
 function isFiniteCoordinate(value) {
   return Number.isFinite(Number(value));
-}
-
-function buildAmapUrl(path, params) {
-  const query = new URLSearchParams({
-    key: AMAP_WEB_SERVICE_KEY,
-    output: 'json'
-  });
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
-    query.set(key, String(value));
-  });
-
-  return `https://restapi.amap.com${path}?${query.toString()}`;
-}
-
-function requestAmap(path, params) {
-  return new Promise((resolve, reject) => {
-    https.get(buildAmapUrl(path, params), (response) => {
-      let data = '';
-
-      response.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      response.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (err) {
-          reject(new Error('解析高德响应失败'));
-        }
-      });
-    }).on('error', (err) => {
-      reject(new Error(`高德请求失败：${err.message}`));
-    });
-  });
 }
 
 function firstPoi(result) {
@@ -107,6 +70,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ poi: null, source: 'none' });
   } catch (err) {
-    return res.status(500).json({ error: err.message || '高德地点详情请求失败' });
+    console.error('share-poi error:', err);
+    return res.status(502).json({ error: '高德地点详情暂时不可用' });
   }
 };

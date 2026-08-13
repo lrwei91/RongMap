@@ -10,19 +10,11 @@
  */
 
 const { processLocationIntake } = require('../../../lib/location-intake');
-const storage = require('../../../lib/locations-storage');
-
-const OPENCLAW_SHARED_SECRET = process.env.OPENCLAW_SHARED_SECRET;
+const storage = require('../../../lib/openclaw-shared-storage');
+const { verifyBearerSecret } = require('../../../lib/request-auth');
 
 function verifyAuth(req) {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return false;
-  }
-
-  const token = authHeader.substring(7);
-  return token === OPENCLAW_SHARED_SECRET;
+  return verifyBearerSecret(req, process.env.OPENCLAW_SHARED_SECRET);
 }
 
 module.exports = async function handler(req, res) {
@@ -41,7 +33,6 @@ module.exports = async function handler(req, res) {
     console.error('[OpenClaw Intake] 错误:', err);
     return res.status(500).json({
       error: '服务器错误',
-      message: err.message,
       code: 'INTERNAL_ERROR'
     });
   }
