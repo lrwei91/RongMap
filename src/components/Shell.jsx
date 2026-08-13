@@ -133,7 +133,7 @@ export function MobileTabBar({ route, onNavigate, onAdd }) {
 
 export function AppShell({ children, route, onNavigate, onAdd, onImport, data, filteredCount }) {
   return (
-    <div className="app-shell">
+    <div className={`app-shell app-shell--${route}`}>
       <PrimaryNav
         route={route}
         onNavigate={onNavigate}

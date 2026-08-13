@@ -20,12 +20,22 @@ test('desktop keeps the map fixed while the list grows', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/app/map');
   await expect(page.getByRole('heading', { name: '地图工作台' })).toBeVisible();
-  await expect(page.locator('.location-card__copy > strong', { hasText: '地点 24' })).toBeVisible();
+  const list = page.locator('.map-workspace .compact-list');
+  const map = page.locator('.map-card');
   const before = await page.locator('.map-card').boundingBox();
-  await page.evaluate(() => window.scrollTo(0, 600));
-  const after = await page.locator('.map-card').boundingBox();
+  const scrollState = await page.evaluate(() => ({
+    pageOverflow: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    bodyOverflow: document.body.scrollHeight - document.body.clientHeight
+  }));
+  expect(scrollState.pageOverflow).toBe(0);
+  expect(scrollState.bodyOverflow).toBe(0);
+  await list.hover();
+  await page.mouse.wheel(0, 700);
+  await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  const after = await map.boundingBox();
   expect(after.height).toBe(before.height);
-  expect(after.y).toBeLessThanOrEqual(20);
+  expect(after.y).toBe(before.y);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test('search, filter and mobile navigation remain operable', async ({ page }) => {
