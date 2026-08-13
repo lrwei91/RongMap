@@ -116,7 +116,7 @@ export function CompactLocationCard({ location, active, selected, member, onTogg
   const [menuOpen, setMenuOpen] = useState(false);
   const category = CATEGORIES[location.category] || CATEGORIES.food;
   return (
-    <article className={`location-card ${active ? 'is-active' : ''}`}>
+    <article className={`location-card ${active ? 'is-active' : ''} ${menuOpen ? 'is-menu-open' : ''}`}>
       <label className="selection-check" title="选择地点">
         <input type="checkbox" checked={selected} onChange={() => onToggle(location.id)} />
         <span className="sr-only">选择 {location.name}</span>

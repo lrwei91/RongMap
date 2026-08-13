@@ -38,6 +38,21 @@ test('desktop keeps the map fixed while the list grows', async ({ page }) => {
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
+test('location context menu renders above the following card', async ({ page }) => {
+  await page.goto('/app/map');
+  const firstCard = page.locator('.location-card').first();
+  const nextCard = page.locator('.location-card').nth(1);
+  await firstCard.getByRole('button', { name: /打开 .* 操作菜单/ }).click();
+  const menu = firstCard.locator('.context-menu__popover');
+  await expect(menu).toBeVisible();
+  const [menuBox, nextBox] = await Promise.all([menu.boundingBox(), nextCard.boundingBox()]);
+  expect(menuBox.y + menuBox.height).toBeGreaterThan(nextBox.y);
+  expect(await menu.evaluate((element) => {
+    const point = element.getBoundingClientRect();
+    return document.elementFromPoint(point.left + 20, Math.min(point.bottom - 8, window.innerHeight - 1))?.closest('.context-menu__popover') === element;
+  })).toBe(true);
+});
+
 test('search, filter and mobile navigation remain operable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app/locations');
