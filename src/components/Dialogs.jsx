@@ -173,5 +173,5 @@ export function UndoToast({ notice, onUndo, onClose }) {
     return () => clearTimeout(timer);
   }, [notice, onClose]);
   if (!notice) return null;
-  return <div className="undo-toast" role="status"><span>✓</span><p>{notice.message}</p>{onUndo ? <button type="button" onClick={onUndo}>撤销</button> : null}<button type="button" aria-label="关闭提示" onClick={onClose}>×</button></div>;
+  return <div className={`undo-toast${notice.error ? ' undo-toast--error' : ''}`} role={notice.error ? 'alert' : 'status'}><span>{notice.error ? '!' : '✓'}</span><p>{notice.message}</p>{onUndo ? <button type="button" onClick={onUndo}>撤销</button> : null}<button type="button" aria-label="关闭提示" onClick={onClose}>×</button></div>;
 }

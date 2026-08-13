@@ -190,7 +190,17 @@ export default function App() {
     } catch (error) { setNotice({ message: `批量操作失败：${error.message}`, error: true }); }
   }
 
-  async function invite(email) { await api.inviteMember(email); await load(true); setNotice({ message: `邀请已发送至 ${email}` }); }
+  async function invite(email) {
+    try {
+      const member = await api.inviteMember(email);
+      setNotice({ message: member.status === 'active' ? `${email} 已加入共享空间` : `邀请已发送至 ${email}` });
+      await load(true);
+      return member;
+    } catch (error) {
+      setNotice({ message: `邀请失败：${error.message}`, error: true });
+      throw error;
+    }
+  }
   async function createTag(name) { await api.createTag(name); await load(true); setNotice({ message: `已创建标签「${name}」` }); }
   async function deleteTag(tag) { await api.deleteTag(tag.id); await load(true); setNotice({ message: `已删除标签「${tag.name}」` }); }
   async function createShare(body) {

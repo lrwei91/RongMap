@@ -74,14 +74,31 @@ export function ShareLinksPage({ links, onCreate, onRevoke, isAdmin }) {
 
 export function SettingsPage({ data, onInvite, onCreateTag, onDeleteTag }) {
   const [email, setEmail] = useState('');
+  const [inviteStatus, setInviteStatus] = useState({ type: 'idle', message: '' });
   const [tagName, setTagName] = useState('');
   const isAdmin = data.currentUser.role === 'admin';
+  const normalizedEmail = email.trim().toLowerCase();
+  const existingMember = data.members.find((member) => member.email?.trim().toLowerCase() === normalizedEmail);
+  const activeCount = data.members.filter((member) => member.status !== 'invited').length;
+  const invitedCount = data.members.filter((member) => member.status === 'invited').length;
+
+  async function submitInvite() {
+    if (!normalizedEmail || existingMember || inviteStatus.type === 'loading') return;
+    setInviteStatus({ type: 'loading', message: `正在向 ${normalizedEmail} 发送邀请…` });
+    try {
+      await onInvite(normalizedEmail);
+      setInviteStatus({ type: 'success', message: `已向 ${normalizedEmail} 发送邀请，等待对方接受。` });
+      setEmail('');
+    } catch (error) {
+      setInviteStatus({ type: 'error', message: error.message });
+    }
+  }
   return (
     <main className="management-page">
       <PageHeader eyebrow="空间管理" title={data.space.name} description="管理亲友共享空间、成员与地点标签。" />
       <div className="settings-grid">
-        <section className="settings-card"><header><div><p className="eyebrow">共享空间</p><h3>{data.space.name}</h3></div><span className="status-badge">{data.members.length} 位成员</span></header><dl><div><dt>当前身份</dt><dd>{isAdmin ? '管理员' : '成员'}</dd></div><div><dt>空间编号</dt><dd className="monospace">{data.space.id}</dd></div><div><dt>默认权限</dt><dd>成员可添加、编辑及移入回收站</dd></div></dl></section>
-        <section className="settings-card settings-card--wide"><header><div><p className="eyebrow">成员</p><h3>成员与邀请</h3></div></header>{isAdmin ? <div className="inline-form"><input type="email" value={email} placeholder="输入受邀成员邮箱" onChange={(e) => setEmail(e.target.value)} /><button type="button" className="button button--primary" disabled={!email.includes('@')} onClick={async () => { await onInvite(email); setEmail(''); }}>发送邀请</button></div> : null}<div className="member-list">{data.members.map((member) => <article key={member.id}><span className="avatar">{(member.name || member.email).slice(0, 1)}</span><div><strong>{member.name || member.email}</strong><small>{member.email || '已加入共享空间'}</small></div><span className="role-label">{member.role === 'admin' ? '管理员' : member.status === 'invited' ? '待加入' : '成员'}</span></article>)}</div></section>
+        <section className="settings-card"><header><div><p className="eyebrow">共享空间</p><h3>{data.space.name}</h3></div><span className="status-badge">{activeCount} 位成员{invitedCount ? ` · ${invitedCount} 个待加入` : ''}</span></header><dl><div><dt>当前身份</dt><dd>{isAdmin ? '管理员' : '成员'}</dd></div><div><dt>空间编号</dt><dd className="monospace">{data.space.id}</dd></div><div><dt>默认权限</dt><dd>成员可添加、编辑及移入回收站</dd></div></dl></section>
+        <section className="settings-card settings-card--wide"><header><div><p className="eyebrow">成员</p><h3>成员与邀请</h3></div></header>{isAdmin ? <><div className="inline-form"><input aria-label="受邀成员邮箱" type="email" value={email} placeholder="输入受邀成员邮箱" onChange={(e) => { setEmail(e.target.value); setInviteStatus({ type: 'idle', message: '' }); }} /><button type="button" className="button button--primary" disabled={!email.includes('@') || Boolean(existingMember) || inviteStatus.type === 'loading'} onClick={submitInvite}>{inviteStatus.type === 'loading' ? '发送中…' : existingMember ? '已邀请' : '发送邀请'}</button></div>{existingMember ? <div className="inline-notice inline-notice--warning"><span>!</span>{existingMember.status === 'invited' ? '该邮箱已发送过邀请，正在等待对方加入。' : '该邮箱已经是空间成员。'}</div> : null}{inviteStatus.message ? <div className={`inline-notice${inviteStatus.type === 'error' ? ' inline-notice--error' : inviteStatus.type === 'loading' ? ' inline-notice--warning' : ''}`} role={inviteStatus.type === 'error' ? 'alert' : 'status'}><span>{inviteStatus.type === 'error' ? '!' : inviteStatus.type === 'loading' ? '…' : '✓'}</span>{inviteStatus.message}</div> : null}</> : null}<div className="member-list">{data.members.map((member) => { const label = member.role === 'admin' ? '管理员' : member.status === 'invited' ? '邀请待接受' : '已加入'; const detail = member.status === 'invited' ? `${member.email} · 邀请已发送${member.createdAt ? ` · ${new Date(member.createdAt).toLocaleDateString('zh-CN')}` : ''}` : member.email || '已加入共享空间'; return <article key={member.id}><span className="avatar">{(member.name || member.email || '?').slice(0, 1)}</span><div><strong>{member.name || member.email || '空间成员'}</strong><small>{detail}</small></div><span className="role-label">{label}</span></article>; })}</div></section>
         <section className="settings-card settings-card--wide"><header><div><p className="eyebrow">地点组织</p><h3>自定义标签</h3></div></header><div className="inline-form"><input value={tagName} maxLength={24} placeholder="例如：周末、长辈友好、约会" onChange={(e) => setTagName(e.target.value)} /><button type="button" className="button button--primary" disabled={!tagName.trim()} onClick={async () => { await onCreateTag(tagName); setTagName(''); }}>创建标签</button></div><div className="tag-management">{data.tags.length ? data.tags.map((tag) => <span className="tag tag--manage" key={tag.id}>{tag.name}<button type="button" onClick={() => onDeleteTag(tag)} aria-label={`删除标签 ${tag.name}`}>×</button></span>) : <p>还没有自定义标签。</p>}</div></section>
       </div>
     </main>

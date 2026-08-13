@@ -59,6 +59,37 @@ test('import wizard exposes all five steps', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: '批量导入地点' })).toBeHidden();
 });
 
+test('member invitation shows progress, persists pending status and blocks duplicates', async ({ page }) => {
+  await page.unroute('**/api/v2/bootstrap');
+  const data = fixture();
+  await page.route('**/api/v2/bootstrap', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) }));
+  await page.route('**/api/v2/members', async (route) => {
+    const email = route.request().postDataJSON().email;
+    const member = { id: 'pending', name: email.split('@')[0], email, role: 'member', status: 'invited', createdAt: new Date().toISOString() };
+    data.members.push(member);
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(member) });
+  });
+  await page.goto('/app/settings');
+  await page.getByRole('textbox', { name: '受邀成员邮箱' }).fill('friend@example.com');
+  await page.getByRole('button', { name: '发送邀请' }).click();
+  await expect(page.getByText('已向 friend@example.com 发送邀请，等待对方接受。')).toBeVisible();
+  await expect(page.getByText('邀请待接受')).toBeVisible();
+  await expect(page.getByText(/friend@example.com · 邀请已发送/)).toBeVisible();
+  await page.getByRole('textbox', { name: '受邀成员邮箱' }).fill('friend@example.com');
+  await expect(page.getByRole('button', { name: '已邀请' })).toBeDisabled();
+  await expect(page.getByText('该邮箱已发送过邀请，正在等待对方加入。')).toBeVisible();
+});
+
+test('member invitation failure remains visible and keeps the email', async ({ page }) => {
+  await page.route('**/api/v2/members', (route) => route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: '邮件发送过于频繁，请稍后再试' }) }));
+  await page.goto('/app/settings');
+  const input = page.getByRole('textbox', { name: '受邀成员邮箱' });
+  await input.fill('later@example.com');
+  await page.getByRole('button', { name: '发送邀请' }).click();
+  await expect(page.locator('.inline-notice[role="alert"]', { hasText: '邮件发送过于频繁，请稍后再试' })).toBeVisible();
+  await expect(input).toHaveValue('later@example.com');
+});
+
 for (const width of [320, 390, 768, 1024, 1440]) {
   test(`viewport ${width}px has no horizontal overflow`, async ({ page }) => {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });

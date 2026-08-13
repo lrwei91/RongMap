@@ -233,6 +233,7 @@ th { color: var(--muted); background: var(--surface-subtle); }
 .undo-toast { position: fixed; right: 20px; bottom: 20px; z-index: 1200; display: grid; grid-template-columns: 24px 1fr auto auto; align-items: center; gap: 8px; min-width: 320px; max-width: min(460px, calc(100vw - 24px)); padding: 10px 12px; border: 1px solid var(--ink); color: #fff; background: var(--ink); box-shadow: var(--shadow-menu); }
 .undo-toast p { margin: 0; }
 .undo-toast button { min-height: 32px; padding: 0 8px; border: 1px solid rgba(255,255,255,.38); color: #fff; background: transparent; font-weight: 800; }
+.undo-toast--error { background: var(--error); border-color: var(--error); }
 
 .locations-page, .management-page { padding: 16px 24px 48px; }
 .location-panel--full { max-width: 1060px; margin: 0 auto; }
