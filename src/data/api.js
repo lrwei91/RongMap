@@ -21,30 +21,9 @@ async function request(path, options = {}) {
   return data;
 }
 
-function legacyBootstrap(locations) {
-  const now = new Date().toISOString();
-  return {
-    mode: 'legacy',
-    currentUser: { id: 'legacy-admin', name: '空间管理员', email: '', role: 'admin' },
-    space: { id: 'default', name: '亲友共享地图', memberCount: 1 },
-    members: [{ id: 'legacy-admin', name: '空间管理员', email: '', role: 'admin' }],
-    tags: [],
-    locations: locations.map(normalizeLocation),
-    trash: [],
-    activity: [{ id: 'legacy-welcome', action: 'space_ready', createdAt: now, actorName: 'RongMap', summary: '共享地图已准备就绪' }],
-    shareLinks: []
-  };
-}
-
 export async function loadBootstrap() {
-  try {
-    const data = await request('/api/v2/bootstrap');
-    return { ...data, locations: (data.locations || []).map(normalizeLocation) };
-  } catch (error) {
-    if (error.status && error.status !== 404) throw error;
-    const legacy = await request('/api/locations');
-    return legacyBootstrap(Array.isArray(legacy) ? legacy : []);
-  }
+  const data = await request('/api/v2/bootstrap');
+  return { ...data, locations: (data.locations || []).map(normalizeLocation) };
 }
 
 export const api = {

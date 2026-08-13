@@ -118,6 +118,11 @@ create or replace function public.is_space_admin(target_space uuid)
 returns boolean language sql stable security definer set search_path = public
 as $$ select exists(select 1 from public.space_members where space_id=target_space and user_id=auth.uid() and role='admin' and status='active') $$;
 
+revoke all on function public.is_space_member(uuid) from public, anon;
+revoke all on function public.is_space_admin(uuid) from public, anon;
+grant execute on function public.is_space_member(uuid) to authenticated;
+grant execute on function public.is_space_admin(uuid) to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.spaces enable row level security;
 alter table public.space_members enable row level security;

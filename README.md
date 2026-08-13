@@ -43,6 +43,7 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 | `INITIAL_ADMIN_EMAIL` | 默认空间首位管理员邮箱 |
 | `RONGMAP_DEFAULT_SPACE_ID` | OpenClaw 和迁移脚本使用的默认空间 |
 | `SITE_URL` | 邀请邮件回跳地址 |
+| `RONGMAP_LEGACY_MODE` | 仅本地旧版兼容调试设为 `1`；生产保持关闭 |
 | `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；应在高德控制台限制允许域名 |
 | `AMAP_WEB_SERVICE_KEY` | 搜索、静态地图和 POI 服务端接口 |
 | `OPENCLAW_SHARED_SECRET` | AI 录入接口 Bearer Token |
@@ -75,7 +76,7 @@ npm run migrate:shared
 | `/api/v2/tags` / `members` | 标签和邀请管理 |
 | `/api/v2/share-links` / `public-share` | 创建、撤销和读取只读链接 |
 
-已配置 Supabase 时，私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。
+私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。未配置 Supabase 时服务端默认关闭共享工作台，避免访客被识别成管理员。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。
 
 旧 `/api/locations` 与 OpenClaw 路径在迁移发布周期内继续工作；OpenClaw 通过 `RONGMAP_DEFAULT_SPACE_ID` 路由默认空间。
 
