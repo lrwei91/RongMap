@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CATEGORIES } from '../lib/location';
+import { api } from '../data/api';
+import { CATEGORIES, normalizeSearchPoi } from '../lib/location';
 
 function Modal({ title, eyebrow, children, footer, onClose, wide = false }) {
   const dialogRef = useRef(null);
@@ -50,8 +51,62 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
     longitude: location?.longitude ?? '',
     tagIds: (location?.tags || []).map((tag) => tag.id || tag)
   }));
+  const [suggestions, setSuggestions] = useState([]);
+  const [searchState, setSearchState] = useState('idle');
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const requestIdRef = useRef(0);
+  const selectedPoiRef = useRef(null);
+  const skipSearchRef = useRef(true);
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const valid = form.name.trim() && form.address.trim();
+  useEffect(() => {
+    const keyword = form.address.trim();
+    if (skipSearchRef.current) { skipSearchRef.current = false; return undefined; }
+    if (!keyword) { requestIdRef.current += 1; setSuggestions([]); setSearchState('idle'); return undefined; }
+    const requestId = ++requestIdRef.current;
+    setSearchState('loading');
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.searchPlaces(keyword);
+        if (requestId !== requestIdRef.current) return;
+        const next = (result.pois || []).map(normalizeSearchPoi).filter(Boolean).slice(0, 8);
+        setSuggestions(next);
+        setActiveSuggestion(next.length ? 0 : -1);
+        setSearchState(next.length ? 'ready' : 'empty');
+      } catch {
+        if (requestId !== requestIdRef.current) return;
+        setSuggestions([]);
+        setActiveSuggestion(-1);
+        setSearchState('error');
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [form.address]);
+
+  function changeAddress(value) {
+    if (selectedPoiRef.current && value !== selectedPoiRef.current.address) {
+      selectedPoiRef.current = null;
+      setForm((current) => ({ ...current, address: value, latitude: '', longitude: '', sourceId: '', matchType: '', poiType: '', city: '', district: '' }));
+    } else set('address', value);
+  }
+
+  function chooseSuggestion(item) {
+    selectedPoiRef.current = item;
+    skipSearchRef.current = true;
+    requestIdRef.current += 1;
+    setForm((current) => ({ ...current, name: item.name, address: item.address, latitude: item.latitude, longitude: item.longitude, sourceId: item.sourceId, sourceType: 'manual', sourcePlatform: 'web', matchType: 'manual_search', poiType: item.poiType, city: item.city, district: item.district }));
+    setSuggestions([]);
+    setActiveSuggestion(-1);
+    setSearchState('selected');
+  }
+
+  function onAddressKeyDown(event) {
+    if (event.key === 'Escape' && suggestions.length) { event.preventDefault(); event.stopPropagation(); setSuggestions([]); setActiveSuggestion(-1); return; }
+    if (!suggestions.length) return;
+    if (event.key === 'ArrowDown') { event.preventDefault(); setActiveSuggestion((current) => (current + 1) % suggestions.length); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); setActiveSuggestion((current) => (current <= 0 ? suggestions.length - 1 : current - 1)); }
+    if (event.key === 'Enter' && activeSuggestion >= 0) { event.preventDefault(); chooseSuggestion(suggestions[activeSuggestion]); }
+  }
   function toggleTag(id) {
     set('tagIds', form.tagIds.includes(id) ? form.tagIds.filter((item) => item !== id) : [...form.tagIds, id]);
   }
@@ -64,7 +119,7 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
     >
       <div className="form-grid">
         <label className="field field--full"><span>地点名称</span><input autoFocus value={form.name} maxLength={120} placeholder="搜索或输入地点名称" onChange={(e) => set('name', e.target.value)} /></label>
-        <label className="field field--full"><span>地址</span><input value={form.address} maxLength={240} placeholder="输入详细地址" onChange={(e) => set('address', e.target.value)} /></label>
+        <div className="field field--full address-search"><label htmlFor="location-address">地址</label><input id="location-address" role="combobox" aria-autocomplete="list" aria-expanded={Boolean(suggestions.length)} aria-controls="address-suggestions" aria-activedescendant={activeSuggestion >= 0 ? `address-suggestion-${activeSuggestion}` : undefined} autoComplete="off" value={form.address} maxLength={240} placeholder="输入地点名称或详细地址" onChange={(e) => changeAddress(e.target.value)} onKeyDown={onAddressKeyDown} />{searchState === 'loading' ? <small className="address-search__status" role="status">正在搜索高德地点…</small> : null}{searchState === 'empty' ? <small className="address-search__status">没有匹配结果，也可以继续手动填写。</small> : null}{searchState === 'error' ? <small className="address-search__status address-search__status--error" role="alert">地址联想暂时不可用，可继续手动填写。</small> : null}{searchState === 'selected' ? <small className="address-search__status address-search__status--selected">✓ 已回填地址和经纬度</small> : null}{suggestions.length ? <div id="address-suggestions" className="address-suggestions" role="listbox" aria-label="地址联想结果">{suggestions.map((item, index) => <button id={`address-suggestion-${index}`} key={item.id} type="button" role="option" aria-selected={index === activeSuggestion} className={index === activeSuggestion ? 'is-active' : ''} onMouseDown={(event) => { event.preventDefault(); chooseSuggestion(item); }}><strong>{item.name}</strong><small>{item.address}</small></button>)}</div> : null}</div>
         <label className="field"><span>主分类</span><select value={form.category} onChange={(e) => set('category', e.target.value)}>{Object.entries(CATEGORIES).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}</select></label>
         <label className="field"><span>备注</span><input value={form.reason} maxLength={240} placeholder="补充推荐理由或其他说明（选填）" onChange={(e) => set('reason', e.target.value)} /></label>
         <label className="field"><span>纬度</span><input inputMode="decimal" value={form.latitude} placeholder="例如 26.061473" onChange={(e) => set('latitude', e.target.value)} /></label>

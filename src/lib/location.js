@@ -21,6 +21,33 @@ export function hasCoordinates(location) {
     Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 }
 
+function poiText(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).join('');
+  return value == null ? '' : String(value).trim();
+}
+
+export function normalizeSearchPoi(poi = {}) {
+  const name = poiText(poi.name);
+  const [longitudeText = '', latitudeText = ''] = poiText(poi.location).split(',').map((value) => value.trim());
+  const longitude = longitudeText === '' ? Number.NaN : Number(longitudeText);
+  const latitude = latitudeText === '' ? Number.NaN : Number(latitudeText);
+  const addressParts = [poi.pname, poi.cityname, poi.adname, poi.address]
+    .map(poiText)
+    .filter((value, index, list) => value && list.indexOf(value) === index);
+  if (!name) return null;
+  return {
+    id: poiText(poi.id) || `${name}-${addressParts.join('')}`,
+    name,
+    address: addressParts.join('') || poiText(poi.address) || '地址待补充',
+    latitude: Number.isFinite(latitude) ? latitude : '',
+    longitude: Number.isFinite(longitude) ? longitude : '',
+    district: poiText(poi.adname),
+    city: poiText(poi.cityname),
+    poiType: poiText(poi.type),
+    sourceId: poiText(poi.id)
+  };
+}
+
 export function relativeTime(value) {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) return '时间未知';

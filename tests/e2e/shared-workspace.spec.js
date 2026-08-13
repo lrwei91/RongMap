@@ -59,6 +59,25 @@ test('import wizard exposes all five steps', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: '批量导入地点' })).toBeHidden();
 });
 
+test('add location address search fills the selected POI and coordinates', async ({ page }) => {
+  await page.route('**/api/search', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ pois: [{ id: 'poi-1', name: '银芳水煮蛙', pname: '福建省', cityname: '福州市', adname: '鼓楼区', address: '北大路1号', location: '119.296531,26.061473', type: '餐饮服务' }] })
+  }));
+  await page.goto('/app/map');
+  await page.getByRole('button', { name: '添加地点' }).first().click();
+  const address = page.getByRole('combobox', { name: '地址' });
+  await address.fill('银芳');
+  await expect(page.getByRole('option', { name: /银芳水煮蛙/ })).toBeVisible();
+  await address.press('Enter');
+  await expect(page.getByLabel('地点名称')).toHaveValue('银芳水煮蛙');
+  await expect(address).toHaveValue('福建省福州市鼓楼区北大路1号');
+  await expect(page.getByLabel('纬度')).toHaveValue('26.061473');
+  await expect(page.getByLabel('经度')).toHaveValue('119.296531');
+  await expect(page.getByText('已回填地址和经纬度')).toBeVisible();
+});
+
 test('member invitation shows progress, persists pending status and blocks duplicates', async ({ page }) => {
   await page.unroute('**/api/v2/bootstrap');
   const data = fixture();

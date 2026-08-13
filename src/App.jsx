@@ -120,7 +120,7 @@ export default function App() {
         latitude: form.latitude === '' ? null : Number(form.latitude),
         longitude: form.longitude === '' ? null : Number(form.longitude),
         version: formLocation?.version,
-        sourceType: formLocation?.sourceType || 'manual'
+        sourceType: form.sourceType || formLocation?.sourceType || 'manual'
       };
       if (formLocation) await api.updateLocation(formLocation.id, payload);
       else await api.createLocation(payload);

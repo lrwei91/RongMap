@@ -27,6 +27,7 @@ export async function loadBootstrap() {
 }
 
 export const api = {
+  searchPlaces: (keywords, city = '福州') => request('/api/search', { method: 'POST', body: JSON.stringify({ keywords, city }) }),
   createLocation: (body) => request('/api/v2/locations', { method: 'POST', body: JSON.stringify(body) }),
   updateLocation: (id, body) => request(`/api/v2/locations?id=${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteLocation: (id) => request(`/api/v2/locations?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
