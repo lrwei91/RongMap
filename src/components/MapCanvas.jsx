@@ -26,13 +26,17 @@ function loadAmap() {
 
 function markerContent(location, active) {
   const category = CATEGORIES[location.category] || CATEGORIES.food;
-  return `<button class="amap-location-marker ${active ? 'is-active' : ''}" aria-label="${location.name}" type="button"><span>${category.short}</span></button>`;
+  const label = location.routeOrder || category.short;
+  return `<button class="amap-location-marker ${location.routeOrder ? 'is-route' : ''} ${active ? 'is-active' : ''}" aria-label="${location.name}" type="button"><span>${label}</span></button>`;
 }
 
-export default function MapCanvas({ locations, activeId, focusRequest, onSelect, publicMode = false }) {
+const ROUTE_COLORS = ['#1a1a1a', '#28704b', '#8a6410', '#315efb', '#a33d36', '#7653a6'];
+
+export default function MapCanvas({ locations, activeId, focusRequest, onSelect, publicMode = false, routeDays = [], activeDayIndex = 0 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef(new Map());
+  const polylinesRef = useRef([]);
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('正在连接高德地图。');
   const [locating, setLocating] = useState(false);
@@ -61,6 +65,8 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
     return () => {
       markersRef.current.forEach((marker) => marker.setMap?.(null));
       markersRef.current.clear();
+      polylinesRef.current.forEach((line) => line.setMap?.(null));
+      polylinesRef.current = [];
       mapRef.current?.destroy?.();
       mapRef.current = null;
     };
@@ -87,15 +93,41 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
           title: location.name,
           map
         });
-        marker.on('click', () => onSelect(location));
+        marker.on('click', () => onSelect(marker.__rongmapLocation));
         markersRef.current.set(location.id, marker);
       } else {
         marker.setContent?.(markerContent(location, location.id === activeId));
         marker.setPosition?.([Number(location.longitude), Number(location.latitude)]);
       }
+      marker.__rongmapLocation = location;
       marker.setzIndex?.(location.id === activeId ? 120 : 100);
     });
   }, [locations, activeId, onSelect, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const AMap = window.AMap;
+    if (!map || !AMap?.Polyline || status !== 'ready') return;
+    polylinesRef.current.forEach((line) => line.setMap?.(null));
+    polylinesRef.current = routeDays.map((day, index) => {
+      const path = (day.items || []).filter(hasCoordinates).map((item) => [Number(item.longitude), Number(item.latitude)]);
+      if (path.length < 2) return null;
+      return new AMap.Polyline({
+        path,
+        strokeColor: ROUTE_COLORS[index % ROUTE_COLORS.length],
+        strokeWeight: day.dayIndex === activeDayIndex ? 6 : 3,
+        strokeOpacity: day.dayIndex === activeDayIndex ? 0.9 : 0.5,
+        lineJoin: 'round',
+        lineCap: 'round',
+        showDir: true,
+        map
+      });
+    }).filter(Boolean);
+    return () => {
+      polylinesRef.current.forEach((line) => line.setMap?.(null));
+      polylinesRef.current = [];
+    };
+  }, [routeDays, activeDayIndex, status]);
 
   useEffect(() => {
     const map = mapRef.current;

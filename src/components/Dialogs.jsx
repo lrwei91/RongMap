@@ -143,6 +143,40 @@ export function ConfirmDialog({ title = '请确认', message, confirmLabel = '�
   );
 }
 
+export function TripCreateDialog({ locations = [], onClose, onCreate }) {
+  const [name, setName] = useState(locations.length ? '收藏地点行程' : '新行程');
+  const [startDate, setStartDate] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function create() {
+    setBusy(true); setError('');
+    try {
+      await onCreate({
+        name: name.trim(),
+        description: '',
+        startDate: startDate || null,
+        days: [{ dayIndex: 1, date: startDate || null, title: '', items: locations.map((item) => ({ locationId: item.id, name: item.name, address: item.address, category: item.category, latitude: item.latitude, longitude: item.longitude, note: '', startTime: '', endTime: '' })) }]
+      });
+    } catch (err) { setError(err.message || '创建行程失败'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <Modal
+      title="创建行程"
+      eyebrow={locations.length ? `已选择 ${locations.length} 个地点` : '共享行程'}
+      onClose={onClose}
+      footer={<><button type="button" className="button button--quiet" onClick={onClose}>取消</button><button type="button" className="button button--primary" disabled={!name.trim() || busy} onClick={create}>{busy ? '创建中…' : '创建并编排行程'}</button></>}
+    >
+      <div className="form-grid">
+        <label className="field field--full"><span>行程名称</span><input autoFocus value={name} maxLength={80} onChange={(event) => setName(event.target.value)} /></label>
+        <label className="field field--full"><span>开始日期（选填）</span><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+        <div className="inline-notice field--full"><span>✓</span>{locations.length ? `所选地点会先加入第 1 天，之后可跨天移动和排序。` : '先创建空行程，之后再从共享地点库添加。'}</div>
+        {error ? <div className="inline-notice inline-notice--error field--full" role="alert"><span>!</span>{error}</div> : null}
+      </div>
+    </Modal>
+  );
+}
+
 function parseCsv(text) {
   const rows = [];
   let row = [];

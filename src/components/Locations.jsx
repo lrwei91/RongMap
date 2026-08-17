@@ -147,7 +147,7 @@ export function CompactLocationCard({ location, active, selected, member, onTogg
   );
 }
 
-export function BulkActionBar({ count, tags, onApply, onClear }) {
+export function BulkActionBar({ count, tags, onApply, onCreateTrip, onClear }) {
   const [tagId, setTagId] = useState('');
   if (!count) return null;
   return (
@@ -158,18 +158,20 @@ export function BulkActionBar({ count, tags, onApply, onClear }) {
         {tags.map((tag) => <option value={tag.id} key={tag.id}>{tag.name}</option>)}
       </select>
       <button type="button" className="button button--quiet" disabled={!tagId} onClick={() => onApply('tag', tagId)}>添加标签</button>
+      <button type="button" className="button button--primary" onClick={onCreateTrip}>创建行程</button>
       <button type="button" className="button button--danger-quiet" onClick={() => onApply('trash')}>移入回收站</button>
       <button type="button" className="text-button" onClick={onClear}>取消选择</button>
     </div>
   );
 }
 
-export function LocationPanel({ locations, allLocations, filters, onFilters, activeId, selectedIds, members, tags, onToggle, onSelectAll, onOpen, onFocus, onEdit, onDelete, onBulk, onClearSelection, onAdd, onImport, onExport, fullPage = false }) {
+export function LocationPanel({ locations, allLocations, filters, onFilters, activeId, selectedIds, members, tags, onToggle, onSelectAll, onOpen, onFocus, onEdit, onDelete, onBulk, onCreateTrip, onClearSelection, onAdd, onImport, onExport, onNavigate, fullPage = false }) {
   const [visibleCount, setVisibleCount] = useState(80);
   const memberMap = useMemo(() => new Map(members.map((member) => [member.id, member])), [members]);
   useEffect(() => setVisibleCount(80), [filters]);
   return (
     <section className={`location-panel ${fullPage ? 'location-panel--full' : ''}`} aria-label="地点列表">
+      {fullPage ? <nav className="mobile-section-switch" aria-label="地点与行程"><button type="button" className="is-active">地点</button><button type="button" onClick={() => onNavigate?.('trips')}>行程</button></nav> : null}
       <div className="location-panel__sticky">
         <LocationSearch value={filters.keyword} onChange={(keyword) => onFilters({ ...filters, keyword })} locations={allLocations} onSelect={onOpen} />
         <FilterBar filters={filters} onChange={onFilters} members={members} tags={tags} />
@@ -178,7 +180,7 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
           <span><strong>{locations.length}</strong> / {allLocations.length}</span>
         </div>
       </div>
-      <BulkActionBar count={selectedIds.size} tags={tags} onApply={onBulk} onClear={onClearSelection} />
+      <BulkActionBar count={selectedIds.size} tags={tags} onApply={onBulk} onCreateTrip={onCreateTrip} onClear={onClearSelection} />
       <div className="compact-list">
         {locations.length ? locations.slice(0, visibleCount).map((location) => (
           <CompactLocationCard

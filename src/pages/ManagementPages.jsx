@@ -11,6 +11,12 @@ const ACTION_COPY = {
   member_invited: '邀请了新成员',
   share_created: '创建了只读链接',
   share_revoked: '撤销了只读链接',
+  trip_created: '创建了行程',
+  trip_updated: '更新了行程',
+  trip_optimized: '优化了行程路线',
+  trip_deleted: '删除了行程',
+  trip_share_created: '创建了行程只读链接',
+  trip_share_revoked: '撤销了行程只读链接',
   space_ready: '更新了共享空间'
 };
 
@@ -27,7 +33,7 @@ export function ActivityPage({ activity, members }) {
       <PageHeader eyebrow="协作记录" title="活动记录" description="查看谁在什么时候对共享空间做了什么。" />
       <div className="page-toolbar">
         <select value={member} onChange={(e) => setMember(e.target.value)} aria-label="按成员筛选"><option value="all">全部成员</option>{members.map((item) => <option value={item.id} key={item.id}>{item.name || item.email}</option>)}</select>
-        <select value={action} onChange={(e) => setAction(e.target.value)} aria-label="按动作筛选"><option value="all">全部动作</option><option value="location_created">新增地点</option><option value="location_updated">修改地点</option><option value="location_deleted">删除地点</option><option value="location_restored">恢复地点</option><option value="import_committed">批量导入</option></select>
+        <select value={action} onChange={(e) => setAction(e.target.value)} aria-label="按动作筛选"><option value="all">全部动作</option><option value="location_created">新增地点</option><option value="location_updated">修改地点</option><option value="location_deleted">删除地点</option><option value="location_restored">恢复地点</option><option value="trip_created">创建行程</option><option value="trip_updated">修改行程</option><option value="trip_optimized">优化行程</option><option value="trip_share_created">分享行程</option><option value="import_committed">批量导入</option></select>
       </div>
       <div className="timeline">
         {filtered.length ? filtered.map((item) => (
@@ -65,7 +71,7 @@ export function ShareLinksPage({ links, onCreate, onRevoke, isAdmin }) {
       <div className="data-list">
         {links.length ? links.map((link) => {
           const url = link.token ? `${window.location.origin}/share/${link.token}` : '';
-          return <article className="data-row" key={link.id}><span className="share-icon">↗</span><div><strong>{link.label}</strong><p className="monospace">{link.revokedAt ? '链接已失效' : url || '链接仍有效；为保护访问令牌，地址只在创建时自动复制。'}</p><small>{link.revokedAt ? '已撤销' : `创建于 ${new Date(link.createdAt).toLocaleDateString('zh-CN')}`}</small></div><div className="row-actions">{url ? <button type="button" className="button button--quiet" disabled={Boolean(link.revokedAt)} onClick={() => navigator.clipboard.writeText(url)}>复制</button> : null}{isAdmin ? <button type="button" className="button button--danger-quiet" disabled={Boolean(link.revokedAt)} onClick={() => onRevoke(link)}>撤销</button> : null}</div></article>;
+          return <article className="data-row" key={link.id}><span className="share-icon">↗</span><div><strong>{link.label}</strong><p className="monospace">{link.revokedAt ? '链接已失效' : url || '链接仍有效；为保护访问令牌，地址只在创建时自动复制。'}</p><small>{link.scope === 'trip' ? '单个行程' : '完整空间'} · {link.revokedAt ? '已撤销' : `创建于 ${new Date(link.createdAt).toLocaleDateString('zh-CN')}`}</small></div><div className="row-actions">{url ? <button type="button" className="button button--quiet" disabled={Boolean(link.revokedAt)} onClick={() => navigator.clipboard.writeText(url)}>复制</button> : null}{isAdmin ? <button type="button" className="button button--danger-quiet" disabled={Boolean(link.revokedAt)} onClick={() => onRevoke(link)}>撤销</button> : null}</div></article>;
         }) : <div className="empty-state"><span>↗</span><h3>还没有共享链接</h3><p>创建后，收到链接的人可以查看实时地图和地点详情。</p></div>}
       </div>
     </main>

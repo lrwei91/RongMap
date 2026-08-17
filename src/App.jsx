@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from './components/Shell';
 import MapCanvas from './components/MapCanvas';
 import { EMPTY_FILTERS, LocationDetailDrawer, LocationPanel } from './components/Locations';
-import { ConfirmDialog, ImportWizard, LocationFormDialog, UndoToast } from './components/Dialogs';
+import { ConfirmDialog, ImportWizard, LocationFormDialog, TripCreateDialog, UndoToast } from './components/Dialogs';
 import { ActivityPage, SettingsPage, ShareLinksPage, TrashPage } from './pages/ManagementPages';
 import { AuthPage, PublicSharePage } from './pages/StandalonePages';
+import { TripEditorPage, TripsPage } from './pages/Trips';
 import { api, loadBootstrap } from './data/api';
 import { downloadLocations, matchesLocation, normalizeLocation, sortLocations } from './lib/location';
 import { supabase } from './lib/supabase';
@@ -12,15 +13,17 @@ import { supabase } from './lib/supabase';
 const EMPTY_DATA = {
   currentUser: { id: '', name: '', role: 'member' },
   space: { id: '', name: '' },
-  members: [], tags: [], locations: [], trash: [], activity: [], shareLinks: []
+  members: [], tags: [], locations: [], trash: [], trips: [], activity: [], shareLinks: []
 };
 
 function getRoute() {
   const path = window.location.pathname.replace(/\/+$/, '');
   if (path.startsWith('/share/')) return { type: 'share', token: decodeURIComponent(path.split('/')[2] || '') };
   if (path.startsWith('/auth')) return { type: 'auth' };
-  const page = path.startsWith('/app/') ? path.split('/')[2] : 'map';
-  return { type: 'app', page: ['map', 'locations', 'activity', 'trash', 'share-links', 'settings'].includes(page) ? page : 'map' };
+  const parts = path.split('/').filter(Boolean);
+  const page = path.startsWith('/app/') ? parts[1] : 'map';
+  if (page === 'trips' && parts[2]) return { type: 'app', page: 'trip', tripId: decodeURIComponent(parts[2]) };
+  return { type: 'app', page: ['map', 'locations', 'trips', 'activity', 'trash', 'share-links', 'settings'].includes(page) ? page : 'map' };
 }
 
 export default function App() {
@@ -35,9 +38,11 @@ export default function App() {
   const [formLocation, setFormLocation] = useState(undefined);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [tripCreateLocations, setTripCreateLocations] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [tripDirty, setTripDirty] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -57,14 +62,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const onPopState = () => setRoute(getRoute());
+    const onPopState = () => {
+      if (route.page === 'trip' && tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) {
+        window.history.pushState({}, '', `/app/trips/${encodeURIComponent(route.tripId)}`);
+        return;
+      }
+      setTripDirty(false);
+      setRoute(getRoute());
+    };
     window.addEventListener('popstate', onPopState);
     if (window.location.pathname === '/') {
       window.history.replaceState({}, '', '/app/map');
       setRoute(getRoute());
     }
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [route, tripDirty]);
 
   useEffect(() => {
     if (route.type === 'app') load();
@@ -82,6 +94,10 @@ export default function App() {
         clearTimeout(timer);
         timer = setTimeout(() => load(true), 180);
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `space_id=eq.${data.space.id}` }, () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => load(true), 180);
+      })
       .subscribe();
     return () => { clearTimeout(timer); supabase.removeChannel(channel); };
   }, [data.space.id, load, route.type]);
@@ -89,10 +105,18 @@ export default function App() {
   const filteredLocations = useMemo(() => sortLocations(data.locations.filter((item) => matchesLocation(item, filters)), filters.sort), [data.locations, filters]);
 
   function navigate(page) {
+    if (route.page === 'trip' && tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) return;
+    setTripDirty(false);
     window.history.pushState({}, '', `/app/${page}`);
     setRoute({ type: 'app', page });
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  function openTrip(id) {
+    window.history.pushState({}, '', `/app/trips/${encodeURIComponent(id)}`);
+    setRoute({ type: 'app', page: 'trip', tripId: id });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function openTripCreate(locations = []) { setTripCreateLocations(locations); }
 
   function openAdd() { setFormLocation(undefined); setFormOpen(true); }
   function openEdit(location) { setActiveLocation(null); setFormLocation(location); setFormOpen(true); }
@@ -212,6 +236,22 @@ export default function App() {
   }
   async function revokeShare(link) { await api.revokeShareLink(link.id); await load(true); setNotice({ message: '共享链接已撤销' }); }
   async function importCommit(body) { const result = await api.importCommit(body); await load(true); return result; }
+  async function createTrip(body) {
+    const trip = await api.createTrip(body);
+    setTripCreateLocations(null);
+    setSelectedIds(new Set());
+    await load(true);
+    setNotice({ message: `已创建行程「${trip.name}」` });
+    openTrip(trip.id);
+    return trip;
+  }
+  function askDeleteTrip(trip) { setConfirm({ type: 'trip-delete', trip, title: '删除行程', message: `删除「${trip.name}」后，对应的行程只读链接也会失效。` }); }
+  async function deleteTrip(trip) {
+    setBusy(true);
+    try { await api.deleteTrip(trip.id); await load(true); setConfirm(null); setNotice({ message: `已删除行程「${trip.name}」` }); if (route.page === 'trip') navigate('trips'); }
+    catch (error) { setNotice({ message: `删除行程失败：${error.message}`, error: true }); }
+    finally { setBusy(false); }
+  }
 
   if (route.type === 'auth') return <AuthPage />;
   if (route.type === 'share') return <PublicSharePage token={route.token} />;
@@ -233,6 +273,8 @@ export default function App() {
     onEdit: openEdit,
     onDelete: askDelete,
     onBulk: bulk,
+    onCreateTrip: () => openTripCreate(data.locations.filter((item) => selectedIds.has(item.id))),
+    onNavigate: navigate,
     onClearSelection: () => setSelectedIds(new Set()),
     onAdd: openAdd,
     onImport: () => setImportOpen(true),
@@ -244,6 +286,8 @@ export default function App() {
       {loadError ? <div className="global-error" role="alert"><span>!</span><p>{loadError}</p><button type="button" onClick={() => load()}>重试</button></div> : null}
       {route.page === 'map' ? <main className="map-workspace"><LocationPanel {...sharedPanelProps} /><MapCanvas locations={filteredLocations} activeId={activeLocation?.id} focusRequest={focusRequest} onSelect={openDetail} /></main> : null}
       {route.page === 'locations' ? <main className="locations-page"><LocationPanel {...sharedPanelProps} fullPage /></main> : null}
+      {route.page === 'trips' ? <TripsPage trips={data.trips} onOpen={openTrip} onCreate={openTripCreate} onDelete={askDeleteTrip} onNavigate={navigate} /> : null}
+      {route.page === 'trip' ? <TripEditorPage tripId={route.tripId} locations={data.locations} isAdmin={data.currentUser.role === 'admin'} onBack={() => navigate('trips')} onChanged={() => load(true)} onDirtyChange={setTripDirty} /> : null}
       {route.page === 'activity' ? <ActivityPage activity={data.activity} members={data.members} /> : null}
       {route.page === 'trash' ? <TrashPage trash={data.trash} onRestore={restore} onPurge={askPurge} isAdmin={data.currentUser.role === 'admin'} /> : null}
       {route.page === 'share-links' ? <ShareLinksPage links={data.shareLinks} onCreate={createShare} onRevoke={revokeShare} isAdmin={data.currentUser.role === 'admin'} /> : null}
@@ -251,7 +295,8 @@ export default function App() {
       <LocationDetailDrawer location={activeLocation} member={data.members.find((member) => member.id === activeLocation?.createdBy)} onClose={() => setActiveLocation(null)} onFocus={focusLocation} onNavigate={navigateLocation} onShare={shareLocation} onEdit={openEdit} onDelete={askDelete} />
       {formOpen ? <LocationFormDialog location={formLocation} tags={data.tags} onClose={() => setFormOpen(false)} onSave={saveLocation} busy={busy} /> : null}
       {importOpen ? <ImportWizard onClose={() => setImportOpen(false)} onPreview={api.importPreview} onCommit={importCommit} /> : null}
-      {confirm ? <ConfirmDialog title={confirm.title} message={confirm.message} danger={confirm.type === 'delete' || confirm.type === 'purge'} confirmLabel={confirm.type === 'purge' ? '永久删除' : confirm.type === 'delete' ? '移入回收站' : '知道了'} busy={busy} onClose={() => setConfirm(null)} onConfirm={() => confirm.type === 'delete' ? deleteLocation(confirm.location) : confirm.type === 'purge' ? purge(confirm.location) : setConfirm(null)} /> : null}
+      {tripCreateLocations ? <TripCreateDialog locations={tripCreateLocations} onClose={() => setTripCreateLocations(null)} onCreate={createTrip} /> : null}
+      {confirm ? <ConfirmDialog title={confirm.title} message={confirm.message} danger={confirm.type === 'delete' || confirm.type === 'purge' || confirm.type === 'trip-delete'} confirmLabel={confirm.type === 'purge' ? '永久删除' : confirm.type === 'delete' ? '移入回收站' : confirm.type === 'trip-delete' ? '删除行程' : '知道了'} busy={busy} onClose={() => setConfirm(null)} onConfirm={() => confirm.type === 'delete' ? deleteLocation(confirm.location) : confirm.type === 'purge' ? purge(confirm.location) : confirm.type === 'trip-delete' ? deleteTrip(confirm.trip) : setConfirm(null)} /> : null}
       <UndoToast notice={notice} onUndo={notice?.undoId ? () => { restore(notice.undoId); setNotice(null); } : null} onClose={() => setNotice(null)} />
     </AppShell>
   );

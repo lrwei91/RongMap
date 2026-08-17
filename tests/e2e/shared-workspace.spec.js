@@ -8,7 +8,7 @@ function fixture(count = 24) {
     members: [{ id: 'admin', name: '小榕', role: 'admin' }, { id: 'friend', name: '阿福', role: 'member' }],
     tags: [{ id: 'weekend', name: '周末' }],
     locations: Array.from({ length: count }, (_, index) => ({ id: `loc-${index}`, name: `地点 ${index + 1}`, address: `福州市测试地址 ${index + 1}`, category: index % 2 ? 'food' : 'spot', reason: index === 2 ? '适合周末' : '', latitude: index === 0 ? null : 26.06 + index / 1000, longitude: index === 0 ? null : 119.29 + index / 1000, tags: index % 3 ? [] : [{ id: 'weekend', name: '周末' }], createdBy: index % 2 ? 'admin' : 'friend', createdAt: new Date(Date.now() - index * 3600000).toISOString(), version: 1 })),
-    trash: [], activity: [], shareLinks: []
+    trash: [], trips: [], activity: [], shareLinks: []
   };
 }
 
@@ -122,6 +122,72 @@ test('member invitation failure remains visible and keeps the email', async ({ p
   await page.getByRole('button', { name: '发送邀请' }).click();
   await expect(page.locator('.inline-notice[role="alert"]', { hasText: '邮件发送过于频繁，请稍后再试' })).toBeVisible();
   await expect(input).toHaveValue('later@example.com');
+});
+
+test('creates, edits, optimizes and shares a trip from selected locations', async ({ page }) => {
+  await page.unroute('**/api/v2/bootstrap');
+  const data = fixture();
+  let trip;
+  await page.route('**/api/v2/bootstrap', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) }));
+  await page.route('**/api/v2/trips**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === 'POST') {
+      const body = request.postDataJSON();
+      trip = { id: 'trip-1', ...body, version: 1, status: 'draft', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      data.trips = [{ id: trip.id, name: trip.name, description: trip.description, startDate: trip.startDate, version: 1, dayCount: trip.days.length, itemCount: trip.days.flatMap((day) => day.items).length }];
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(trip) });
+    }
+    if (request.method() === 'GET' && url.searchParams.get('id')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trip) });
+    if (request.method() === 'PUT') {
+      const body = request.postDataJSON();
+      if (body.action === 'optimize') {
+        trip = { ...trip, version: trip.version + 1, optimization: [{ dayIndex: body.dayIndex, beforeKm: 3.2, afterKm: 2.4, skipped: 0, improved: true }] };
+      } else trip = { ...body, id: trip.id, version: trip.version + 1, status: 'draft', updatedAt: new Date().toISOString() };
+      data.trips[0] = { ...data.trips[0], version: trip.version, dayCount: trip.days.length, itemCount: trip.days.flatMap((day) => day.items).length };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trip) });
+    }
+    return route.fulfill({ status: 405, contentType: 'application/json', body: JSON.stringify({ error: '方法不允许' }) });
+  });
+  await page.route('**/api/v2/share-links', (route) => route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'share-trip', scope: 'trip', tripId: 'trip-1', token: 'TRIP_TOKEN' }) }));
+
+  await page.goto('/app/locations');
+  await page.locator('.location-card .selection-check input').nth(1).check();
+  await page.locator('.location-card .selection-check input').nth(2).check();
+  await page.getByRole('button', { name: '创建行程' }).click();
+  await expect(page.getByRole('dialog', { name: '创建行程' })).toBeVisible();
+  await page.getByLabel('行程名称').fill('福州周末路线');
+  await page.getByRole('button', { name: '创建并编排行程' }).click();
+  await expect(page).toHaveURL(/\/app\/trips\/trip-1/);
+  await expect(page.getByLabel('行程名称')).toHaveValue('福州周末路线');
+  await expect(page.locator('.trip-item')).toHaveCount(2);
+
+  await page.getByRole('button', { name: '增加一天' }).click();
+  await page.getByRole('button', { name: /第 1 天/ }).click();
+  await page.locator('.trip-item').first().getByRole('button', { name: '后一天' }).click();
+  await page.getByRole('button', { name: '保存行程' }).click();
+  await expect(page.getByRole('button', { name: '已保存' })).toBeDisabled();
+  await page.getByRole('button', { name: /第 2 天/ }).click();
+  await page.getByRole('button', { name: '优化当天路线' }).click();
+  await expect(page.getByText(/路线已从 3.2 km 优化到 2.4 km/)).toBeVisible();
+  await page.getByRole('button', { name: '创建只读链接' }).click();
+  await expect(page.getByText('行程只读链接已创建并复制')).toBeVisible();
+});
+
+test('renders a trip-scoped public share without edit actions', async ({ page }) => {
+  const trip = {
+    id: 'trip-public', name: '福州两日游', startDate: '2026-08-20', version: 2,
+    days: [{ id: 'day-1', dayIndex: 1, date: '2026-08-20', title: '老城', items: [
+      { id: 'item-1', name: '三坊七巷', address: '鼓楼区南后街', category: 'spot', longitude: 119.296, latitude: 26.082, startTime: '09:00', endTime: '11:00' }
+    ] }]
+  };
+  await page.route('**/api/v2/public-share?token=TRIP_TOKEN', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ type: 'trip', space: { id: 'space', name: '周末去哪儿' }, trip }) }));
+  await page.goto('/share/TRIP_TOKEN');
+  await expect(page.getByRole('heading', { name: '福州两日游' })).toBeVisible();
+  await expect(page.getByText('第 1 天')).toBeVisible();
+  await expect(page.getByRole('button', { name: /三坊七巷/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: '保存行程' })).toHaveCount(0);
+  await expect(page.getByText('只读', { exact: true })).toBeVisible();
 });
 
 for (const width of [320, 390, 768, 1024, 1440]) {

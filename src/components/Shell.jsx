@@ -3,6 +3,7 @@ import React from 'react';
 const NAV_ITEMS = [
   ['map', '地图', '⌖'],
   ['locations', '地点', '▦'],
+  ['trips', '行程', '→'],
   ['activity', '活动', '↻'],
   ['trash', '回收站', '♲'],
   ['share-links', '共享链接', '↗'],
@@ -28,6 +29,7 @@ export function SpaceSwitcher({ space, members }) {
 }
 
 export function PrimaryNav({ route, onNavigate, user, space, members, trashCount }) {
+  const activeRoute = route === 'trip' ? 'trips' : route;
   return (
     <aside className="primary-nav" aria-label="主导航">
       <div className="brand-lockup">
@@ -40,8 +42,8 @@ export function PrimaryNav({ route, onNavigate, user, space, members, trashCount
           <button
             type="button"
             key={id}
-            className={`nav-item ${route === id ? 'is-active' : ''}`}
-            aria-current={route === id ? 'page' : undefined}
+            className={`nav-item ${activeRoute === id ? 'is-active' : ''}`}
+            aria-current={activeRoute === id ? 'page' : undefined}
             onClick={() => onNavigate(id)}
           >
             <span className="nav-icon" aria-hidden="true">{icon}</span>
@@ -65,6 +67,8 @@ export function TopBar({ route, filteredCount, totalCount, members, onAdd, onImp
   const titles = {
     map: '地图工作台',
     locations: '地点管理',
+    trips: '共享行程',
+    trip: '行程编排',
     activity: '活动记录',
     trash: '回收站',
     'share-links': '共享链接',
@@ -106,6 +110,7 @@ export function MobileTopBar({ space, members, filteredCount, totalCount }) {
 }
 
 export function MobileTabBar({ route, onNavigate, onAdd }) {
+  const activeRoute = route === 'trips' || route === 'trip' ? 'locations' : route;
   const items = [
     ['map', '地图', '⌖'],
     ['locations', '地点', '▦'],
@@ -119,8 +124,8 @@ export function MobileTabBar({ route, onNavigate, onAdd }) {
         <button
           key={id}
           type="button"
-          className={`mobile-tab ${id === 'add' ? 'mobile-tab--add' : ''} ${route === id ? 'is-active' : ''}`}
-          aria-current={route === id ? 'page' : undefined}
+          className={`mobile-tab ${id === 'add' ? 'mobile-tab--add' : ''} ${activeRoute === id ? 'is-active' : ''}`}
+          aria-current={activeRoute === id ? 'page' : undefined}
           onClick={() => id === 'add' ? onAdd() : onNavigate(id)}
         >
           <span aria-hidden="true">{icon}</span>

@@ -8,6 +8,7 @@ const handlers = {
   'public-share': require('../../lib/api-v2/public-share'),
   'share-links': require('../../lib/api-v2/share-links'),
   tags: require('../../lib/api-v2/tags'),
+  trips: require('../../lib/api-v2/trips'),
   trash: require('../../lib/api-v2/trash')
 };
 

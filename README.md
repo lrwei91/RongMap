@@ -6,6 +6,8 @@ RongMap 是面向亲友共享的福州地点地图工作台。成员可以共同
 
 - `/app/map`：三栏地图工作台，地点列表自然滚动，地图保持固定尺寸。
 - `/app/locations`：全量地点、组合筛选、排序和批量操作。
+- `/app/trips`：共享行程列表；可从已选地点创建逐日行程。
+- `/app/trips/:id`：分天编排、跨天移动、路线优化、撤销重做和只读分享。
 - `/app/activity`：成员活动记录。
 - `/app/trash`：30天回收站。
 - `/app/share-links`：管理员只读链接管理。
@@ -52,7 +54,7 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 
 ## Supabase 初始化与迁移
 
-1. 在 Supabase SQL Editor 执行 `supabase/migrations/20260812_shared_spaces.sql`。
+1. 在 Supabase SQL Editor 依次执行 `20260812_shared_spaces.sql`、`20260813_harden_shared_spaces.sql` 和 `20260817_trips.sql`。
 2. 在 Auth 中创建与 `INITIAL_ADMIN_EMAIL` 相同的首位用户。
 3. 在维护窗口冻结旧系统写入并执行 KV 备份。
 4. 设置服务端环境变量后运行：
@@ -68,13 +70,16 @@ npm run migrate:shared
 
 | 路径 | 能力 |
 | --- | --- |
-| `GET /api/v2/bootstrap` | 当前空间、成员、地点、标签、活动、回收站和链接 |
+| `GET /api/v2/bootstrap` | 当前空间、成员、地点、行程摘要、标签、活动、回收站和链接 |
 | `/api/v2/locations` | 创建、版本化更新和软删除地点 |
+| `/api/v2/trips` | 行程摘要、完整行程、版本化保存、路线优化和删除 |
 | `/api/v2/trash` | 恢复和管理员永久清理 |
 | `POST /api/v2/bulk` | 批量标签和移入回收站 |
 | `/api/v2/import-preview` / `import-commit` | 导入预览与提交 |
 | `/api/v2/tags` / `members` | 标签和邀请管理 |
 | `/api/v2/share-links` / `public-share` | 创建、撤销和读取只读链接 |
+
+行程路线优化使用经纬度直线距离、全起点近邻搜索和 2-opt 局部优化；未定位地点保持原相对顺序并放在当天末尾。只读链接支持完整空间和单个行程两种范围。
 
 私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。未配置 Supabase 时服务端默认关闭共享工作台，避免访客被识别成管理员。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。
 
