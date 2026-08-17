@@ -54,7 +54,7 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 
 ## Supabase 初始化与迁移
 
-1. 在 Supabase SQL Editor 依次执行 `20260812_shared_spaces.sql`、`20260813_harden_shared_spaces.sql` 和 `20260817_trips.sql`。
+1. 在 Supabase SQL Editor 依次执行 `20260812_shared_spaces.sql`、`20260813_harden_shared_spaces.sql`、`20260817_trips.sql` 和 `20260817_harden_trips.sql`。
 2. 在 Auth 中创建与 `INITIAL_ADMIN_EMAIL` 相同的首位用户。
 3. 在维护窗口冻结旧系统写入并执行 KV 备份。
 4. 设置服务端环境变量后运行：

@@ -49,10 +49,13 @@ alter table public.share_links add constraint share_links_scope_target_check che
 );
 
 create index if not exists trips_space_updated_idx on public.trips(space_id, updated_at desc) where deleted_at is null;
+create index if not exists trips_created_by_idx on public.trips(created_by);
+create index if not exists trips_updated_by_idx on public.trips(updated_by);
 create index if not exists trip_days_trip_idx on public.trip_days(trip_id, day_index);
 create unique index if not exists trip_days_id_trip_idx on public.trip_days(id, trip_id);
 create index if not exists trip_items_trip_idx on public.trip_items(trip_id, sort_order);
 create index if not exists trip_items_day_idx on public.trip_items(day_id, sort_order);
+create index if not exists trip_items_day_trip_idx on public.trip_items(day_id, trip_id);
 create index if not exists trip_items_location_idx on public.trip_items(location_id);
 create index if not exists share_links_trip_idx on public.share_links(trip_id) where trip_id is not null;
 
@@ -205,7 +208,7 @@ begin
 end
 $$;
 
-revoke all on function public.save_trip_plan(uuid,uuid,uuid,integer,text,text,text,jsonb,text) from public, anon;
+revoke all on function public.save_trip_plan(uuid,uuid,uuid,integer,text,text,text,jsonb,text) from public, anon, authenticated;
 grant execute on function public.save_trip_plan(uuid,uuid,uuid,integer,text,text,text,jsonb,text) to service_role;
 
 do $$ begin
