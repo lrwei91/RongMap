@@ -13,3 +13,8 @@ data/backups/
 .env*.local
 .omx/
 .claude/
+
+# Agent 说明与工具本地状态（local-only, not pushed to remote）
+AGENTS.md
+CONTEXT.md
+.codex/
