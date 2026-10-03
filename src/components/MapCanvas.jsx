@@ -2,15 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CATEGORIES, hasCoordinates } from '../lib/location';
 
 const FUZHOU_CENTER = [119.296531, 26.061473];
-const DEFAULT_AMAP_WEB_KEY = '806754933c281cf11a95842b5f9cef59';
-const DEFAULT_AMAP_SECURITY_CODE = 'db67e6113b81508f33ae7b14dbc42358';
 let amapPromise;
 
 function loadAmap() {
   if (window.AMap?.Map) return Promise.resolve(window.AMap);
   if (amapPromise) return amapPromise;
-  const key = import.meta.env.VITE_AMAP_WEB_KEY || DEFAULT_AMAP_WEB_KEY;
-  const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_CODE || DEFAULT_AMAP_SECURITY_CODE;
+  const key = import.meta.env.VITE_AMAP_WEB_KEY;
+  const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_CODE;
+  if (!key) { amapPromise = Promise.reject(new Error('缺少 VITE_AMAP_WEB_KEY 配置')); return amapPromise; }
   if (securityJsCode) window._AMapSecurityConfig = { securityJsCode };
   amapPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');

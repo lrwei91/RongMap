@@ -46,11 +46,11 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 | `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_NAME` | 首位管理员的用户名与显示名 |
 | `RONGMAP_DEFAULT_SPACE_ID` | OpenClaw 和迁移脚本使用的默认空间 |
 | `RONGMAP_LEGACY_MODE` | 仅本地旧版兼容调试设为 `1`；生产保持关闭 |
-| `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；应在高德控制台限制允许域名 |
-| `AMAP_WEB_SERVICE_KEY` | 地点搜索服务端接口 |
+| `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；必填，应在高德控制台限制允许域名 |
+| `AMAP_WEB_SERVICE_KEY` | 地点搜索服务端接口；必填 |
 | `OPENCLAW_SHARED_SECRET` | AI 录入接口 Bearer Token |
 
-仓库不再包含任何高德密钥默认值。已有密钥应完成轮换并设置域名、来源和配额限制。
+源码与 `.env.example` 已不再包含任何高德密钥，缺失时地图和搜索会直接提示缺哪个变量。这三个密钥曾以明文提交进历史，必须在高德控制台轮换后再更新 Vercel；轮换前旧密钥继续可用。
 
 ## Supabase 初始化与迁移
 

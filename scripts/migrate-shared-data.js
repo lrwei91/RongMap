@@ -43,7 +43,8 @@ async function main() {
     normalized_address: item.normalizedAddress || null,
     city: item.city || null,
     district: item.district || null,
-    confidence: item.confidence || null,
+    // 旧 KV 数据里的 confidence 是 high/medium 等级文字，不是数字，非数字一律落 null
+    confidence: typeof item.confidence === 'number' && Number.isFinite(item.confidence) ? item.confidence : null,
     version: 1,
     created_by: admin.id,
     created_by_name: profile.name,
