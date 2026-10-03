@@ -46,12 +46,11 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 | `SUPABASE_URL` / `SUPABASE_SECRET_KEY` | Serverless 管理客户端；Secret 只放服务端 |
 | `RONGMAP_DEFAULT_MEMBER_PASSWORD` | 服务端共享默认密码；至少 8 位，成员从不接触，只放服务端 |
 | `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_NAME` | 首位管理员的用户名与显示名 |
-| `RONGMAP_DEFAULT_SPACE_ID` | OpenClaw 和迁移脚本使用的默认空间 |
+| `RONGMAP_DEFAULT_SPACE_ID` | 迁移脚本使用的默认空间 |
 | `RONGMAP_LEGACY_MODE` | 仅本地旧版兼容调试设为 `1`；生产保持关闭 |
 | `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；必填，应在高德控制台限制允许域名 |
 | `AMAP_WEB_SERVICE_KEY` | 地点搜索服务端接口；必填 |
 | `MONK_API_BASE_URL` / `MONK_MODEL` / `MONK_API_KEY` | AI 路书生成；仅服务端，默认 Monk 兼容接口与 `monk` 模型 |
-| `OPENCLAW_SHARED_SECRET` | AI 录入接口 Bearer Token |
 
 源码与 `.env.example` 已不再包含任何高德密钥，缺失时地图和搜索会直接提示缺哪个变量。这三个密钥曾以明文提交进历史，必须在高德控制台轮换后再更新 Vercel；轮换前旧密钥继续可用。
 
@@ -104,7 +103,7 @@ npm run migrate:shared       # 重建管理员、空间和地点
 
 私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。未配置 Supabase 时服务端默认关闭共享工作台，避免访客被识别成管理员。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。
 
-旧 `/api/locations` 与 OpenClaw 路径在迁移发布周期内继续工作；OpenClaw 通过 `RONGMAP_DEFAULT_SPACE_ID` 路由默认空间。
+旧 `/api/locations` 在迁移发布周期内继续工作，带Deprecation/Sunset 响应头。
 
 ## 验证
 
@@ -128,6 +127,6 @@ npm run test:e2e    # Playwright共享工作台关键流程
 
 AI 规划使用 Monk OpenAI 兼容 `chat/completions` 流式接口，由服务端汇总并验证结构后返回草案。填写旅行需求和规划天数，选择当前行程或收藏地点 → 生成预览 → 应用到草稿 → 检查并保存。用户明确应用前不会改动行程；保存仍校验版本冲突。生成最多60个候选地点，模型只能安排这些地点；名称、地址、坐标使用服务端真源。AI 生成的票价强制为空并标注待核实；已填花费继续保留。AI 时间与建议属于草案，路线、天气由高德单独核实。
 
-本地在忽略提交的 `.env.local` 配置 `MONK_API_KEY`；生产在 Vercel 服务端环境变量配置同名字段，禁止使用 `VITE_` 前缀。默认服务地址为 `https://monk.party/v1`，默认模型 `monk`。请求45秒超时，响应最多512KB，服务错误不回传上游响应或请求头。生成过程中只发送出行需求、路书需求字段，以及选中地点的名称、地址、类别和坐标，不发送成员身份和地点私人备注。
+本地在忽略提交的 `.env.local` 配置 `MONK_API_KEY`；生产在 Vercel 服务端环境变量配置同名字段，禁止使用 `VITE_` 前缀。默认服务地址为 `https://monk.party/v1`，默认模型 `monk`。请求240秒超时（贴近 Vercel 函数300秒上限，实测 5 天 20 个地点约 110 秒），响应最多512KB，服务错误不回传上游响应或请求头；提示词要求紧凑输出，避免推理token耗尽max_tokens导致草案被截断。生成过程中只发送出行需求、路书需求字段，以及选中地点的名称、地址、类别和坐标，不发送成员身份和地点私人备注。
 
 尚未接入自动搜索新地点、自动核查票价或专属 `amapuri` 行程地图生成；导航使用已有高德 URI 逐段导航，发布使用现有只读分享。
