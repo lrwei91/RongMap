@@ -43,7 +43,7 @@ export const api = {
   importCommit: (body) => request('/api/v2/import-commit', { method: 'POST', body: JSON.stringify(body) }),
   createTag: (name) => request('/api/v2/tags', { method: 'POST', body: JSON.stringify({ name }) }),
   deleteTag: (id) => request(`/api/v2/tags?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  inviteMember: (email) => request('/api/v2/members', { method: 'POST', body: JSON.stringify({ email }) }),
+  createMember: (username, name) => request('/api/v2/members', { method: 'POST', body: JSON.stringify({ username, name }) }),
   createShareLink: (body) => request('/api/v2/share-links', { method: 'POST', body: JSON.stringify(body) }),
   revokeShareLink: (id) => request(`/api/v2/share-links?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
   loadPublicShare: (token) => request(`/api/v2/public-share?token=${encodeURIComponent(token)}`)

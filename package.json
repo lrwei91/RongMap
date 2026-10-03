@@ -11,7 +11,8 @@
     "test": "vitest run src lib api",
     "test:e2e": "playwright test",
     "backup:kv": "node scripts/backup-kv.js",
-    "migrate:shared": "node scripts/migrate-shared-data.js"
+    "migrate:shared": "node scripts/migrate-shared-data.js",
+    "reset:space": "node scripts/reset-space.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

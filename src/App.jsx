@@ -214,14 +214,14 @@ export default function App() {
     } catch (error) { setNotice({ message: `批量操作失败：${error.message}`, error: true }); }
   }
 
-  async function invite(email) {
+  async function addMember(username, name) {
     try {
-      const member = await api.inviteMember(email);
-      setNotice({ message: member.status === 'active' ? `${email} 已加入共享空间` : `邀请已发送至 ${email}` });
+      const member = await api.createMember(username, name);
+      setNotice({ message: `已注册 ${username}，对方现在就能用该用户名登录` });
       await load(true);
       return member;
     } catch (error) {
-      setNotice({ message: `邀请失败：${error.message}`, error: true });
+      setNotice({ message: `注册失败：${error.message}`, error: true });
       throw error;
     }
   }
@@ -291,7 +291,7 @@ export default function App() {
       {route.page === 'activity' ? <ActivityPage activity={data.activity} members={data.members} /> : null}
       {route.page === 'trash' ? <TrashPage trash={data.trash} onRestore={restore} onPurge={askPurge} isAdmin={data.currentUser.role === 'admin'} /> : null}
       {route.page === 'share-links' ? <ShareLinksPage links={data.shareLinks} onCreate={createShare} onRevoke={revokeShare} isAdmin={data.currentUser.role === 'admin'} /> : null}
-      {route.page === 'settings' ? <SettingsPage data={data} onInvite={invite} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}
+      {route.page === 'settings' ? <SettingsPage data={data} onAddMember={addMember} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}
       <LocationDetailDrawer location={activeLocation} member={data.members.find((member) => member.id === activeLocation?.createdBy)} onClose={() => setActiveLocation(null)} onFocus={focusLocation} onNavigate={navigateLocation} onShare={shareLocation} onEdit={openEdit} onDelete={askDelete} />
       {formOpen ? <LocationFormDialog location={formLocation} tags={data.tags} onClose={() => setFormOpen(false)} onSave={saveLocation} busy={busy} /> : null}
       {importOpen ? <ImportWizard onClose={() => setImportOpen(false)} onPreview={api.importPreview} onCommit={importCommit} /> : null}

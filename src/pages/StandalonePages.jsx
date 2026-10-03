@@ -2,23 +2,26 @@ import React, { useEffect, useState } from 'react';
 import MapCanvas from '../components/MapCanvas';
 import { CATEGORIES } from '../lib/location';
 import { api } from '../data/api';
-import { supabase } from '../lib/supabase';
+import { signInWithUsername, supabase } from '../lib/supabase';
 
 export function AuthPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [status, setStatus] = useState('idle');
+  const [message, setMessage] = useState('');
   async function submit(event) {
     event.preventDefault();
-    if (!supabase) { setStatus('unconfigured'); return; }
     setStatus('loading');
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
-    setStatus(error ? 'error' : 'sent');
+    try {
+      await signInWithUsername(username.trim().toLowerCase());
+      // 服务端已换到会话，但缺少客户端配置时浏览器无法保存它。
+      if (!supabase) { setStatus('unconfigured'); return; }
+      window.location.replace('/app/map');
+    } catch (error) {
+      setStatus('error');
+      setMessage(error.message || '该用户名未注册');
+    }
   }
-  useEffect(() => {
-    if (!supabase || !window.location.pathname.includes('callback')) return;
-    supabase.auth.getSession().then(({ data }) => { if (data.session) window.location.replace('/app/map'); });
-  }, []);
-  return <main className="auth-page"><section className="auth-card"><div className="brand-lockup"><span className="brand-dot" />RONGMAP</div><p className="eyebrow">受邀成员登录</p><h1>回到亲友共享地图</h1><p>输入受邀邮箱，我们会发送一次性登录链接。</p><form onSubmit={submit}><label className="field"><span>邮箱</span><input type="email" required value={email} placeholder="name@example.com" onChange={(e) => setEmail(e.target.value)} /></label><button className="button button--primary" disabled={status === 'loading'}>{status === 'loading' ? '发送中…' : '发送登录链接'}</button></form>{status === 'sent' ? <div className="inline-notice"><span>✓</span>登录链接已发送，请检查邮箱。</div> : null}{status === 'error' ? <div className="inline-notice inline-notice--error"><span>!</span>发送失败，请确认邮箱已受邀。</div> : null}{status === 'unconfigured' ? <div className="inline-notice inline-notice--warning"><span>!</span>当前环境尚未配置 Supabase 登录。</div> : null}</section></main>;
+  return <main className="auth-page"><section className="auth-card"><div className="brand-lockup"><span className="brand-dot" />RONGMAP</div><p className="eyebrow">成员登录</p><h1>回到亲友共享地图</h1><p>输入管理员为你注册的用户名即可登录。</p><form onSubmit={submit}><label className="field"><span>用户名</span><input required autoComplete="username" autoCapitalize="none" spellCheck="false" value={username} placeholder="例如：xiaorong" onChange={(e) => { setUsername(e.target.value); setStatus('idle'); setMessage(''); }} /></label><button className="button button--primary" disabled={status === 'loading' || !username.trim()}>{status === 'loading' ? '登录中…' : '登录'}</button></form>{status === 'error' ? <div className="inline-notice inline-notice--error" role="alert"><span>!</span>{message}</div> : null}{status === 'unconfigured' ? <div className="inline-notice inline-notice--warning"><span>!</span>当前环境尚未配置 Supabase 登录。</div> : null}</section></main>;
 }
 
 export function PublicSharePage({ token }) {

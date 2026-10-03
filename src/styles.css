@@ -282,6 +282,7 @@ th { color: var(--muted); background: var(--surface-subtle); }
 .settings-card dt { color: var(--muted); }
 .settings-card dd { margin: 0; }
 .inline-form { display: flex; gap: 6px; margin-bottom: 14px; }
+.inline-form input { flex: 1; min-width: 0; }
 .member-list { display: grid; gap: 6px; }
 .member-list article { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--line); }
 .member-list strong, .member-list small { display: block; }

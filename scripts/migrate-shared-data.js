@@ -1,24 +1,31 @@
 require('dotenv').config({ path: process.env.ENV_FILE || '.env.local' });
 const crypto = require('crypto');
 const { getSupabaseAdmin } = require('../lib/server-supabase');
+const { getDefaultMemberPassword, normalizeUsername, toMemberEmail } = require('../lib/member-auth');
 const storage = require('../lib/locations-storage');
 
 async function main() {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error('请配置 SUPABASE_URL 与 SUPABASE_SECRET_KEY');
-  const adminEmail = process.env.INITIAL_ADMIN_EMAIL;
-  if (!adminEmail) throw new Error('请配置 INITIAL_ADMIN_EMAIL');
+  const adminUsername = normalizeUsername(process.env.INITIAL_ADMIN_USERNAME);
+  const adminName = String(process.env.INITIAL_ADMIN_NAME || '').trim() || adminUsername;
+  const adminEmail = toMemberEmail(adminUsername);
   const users = await supabase.auth.admin.listUsers();
   if (users.error) throw users.error;
-  const admin = users.data.users.find((user) => user.email?.toLowerCase() === adminEmail.toLowerCase());
-  if (!admin) throw new Error(`Supabase Auth 中未找到管理员邮箱 ${adminEmail}`);
-  const profile = { id: admin.id, email: admin.email, name: admin.user_metadata?.name || admin.email.split('@')[0] };
+  let admin = users.data.users.find((user) => user.email?.toLowerCase() === adminEmail);
+  if (!admin) {
+    const created = await supabase.auth.admin.createUser({ email: adminEmail, password: getDefaultMemberPassword(), email_confirm: true, user_metadata: { name: adminName, username: adminUsername } });
+    if (created.error) throw created.error;
+    admin = created.data.user;
+    console.log(`已创建管理员账号，用户名 ${adminUsername}`);
+  }
+  const profile = { id: admin.id, email: admin.email, name: admin.user_metadata?.name || adminName };
   await supabase.from('profiles').upsert(profile);
   const configuredSpaceId = process.env.RONGMAP_DEFAULT_SPACE_ID;
   const spaceId = configuredSpaceId || crypto.randomUUID();
   const spaceResult = await supabase.from('spaces').upsert({ id: spaceId, name: process.env.RONGMAP_DEFAULT_SPACE_NAME || '亲友共享地图', created_by: admin.id }).select().single();
   if (spaceResult.error) throw spaceResult.error;
-  await supabase.from('space_members').upsert({ space_id: spaceId, user_id: admin.id, role: 'admin', status: 'active' }, { onConflict: 'space_id,user_id' });
+  await supabase.from('space_members').upsert({ space_id: spaceId, user_id: admin.id, role: 'admin' }, { onConflict: 'space_id,user_id' });
   const locations = await storage.getLocations();
   const rows = locations.map((item) => ({
     id: /^[0-9a-f-]{36}$/i.test(String(item.id)) ? item.id : crypto.randomUUID(),

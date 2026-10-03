@@ -17,9 +17,10 @@ metadata:
 
 - 保持 React + Vite 前端、Supabase 认证/数据库/实时更新和 Vercel API 的现有架构。
 - 私有 API 必须校验 Supabase Access Token、空间成员和角色；未配置 Supabase 时默认关闭共享工作台。
+- 登录只用用户名，不发邮件、不存密码；不要重新引入邮箱验证或邀请回跳流程。
 - 地点更新使用 `version` 乐观并发控制；`409` 必须展示最新记录，不静默覆盖他人修改。
 - 行程路线优化保留未定位地点的相对顺序，并把它们放在当天末尾；不要为了“优化”丢失地点。
-- KV 备份、共享空间迁移、成员默认密码、生产部署和密钥写入都是高影响操作，先确认范围和备份状态。
+- KV 备份、共享空间迁移、管理员账号初始化、生产部署和密钥写入都是高影响操作，先确认范围和备份状态。
 
 ## 核心结构
 
@@ -30,7 +31,7 @@ metadata:
 | `/app/activity`、`/app/trash` | 活动记录和 30 天回收站 | 删除优先软删除，恢复/清理区分权限 |
 | `/app/share-links`、`/share/:token` | 管理只读链接和公开读取 | 支持空间/单行程范围，撤销后不可继续读取 |
 | `/api/v2/`、`api/_lib/` | API v2、鉴权、路由和共享逻辑 | 新路由同步前端、权限、测试和旧兼容路径 |
-| `scripts/` | KV 备份、共享迁移、成员密码 | 先 preview/备份，再执行生产写入 |
+| `scripts/` | KV 备份、共享迁移、管理员账号初始化 | 先 preview/备份，再执行生产写入 |
 
 ## 使用
 
@@ -51,7 +52,7 @@ npm run dev
 vercel dev
 ```
 
-执行 `npm run backup:kv`、`npm run migrate:shared` 或 `npm run members:set-default-password` 前，先确认环境、目标空间、备份和授权；不输出任何密钥值。
+执行 `npm run backup:kv` 或 `npm run migrate:shared` 前，先确认环境、目标空间、备份和授权；不输出任何密钥值。
 
 ## 当前 5 大坑
 
@@ -73,7 +74,7 @@ vercel dev
 
 ### 5. 把真实地图/邮件/Realtime 当本地构建证据
 
-**触发**：`npm run build` 通过。**表现**：生产权限、邮件、Realtime 或高德限制仍未验证。**修法**：分开报告本地 check/test/e2e 与预览环境真实验证，网络或风控失败不能伪装成通过。
+**触发**：`npm run build` 通过。**表现**：生产权限、Realtime 或高德限制仍未验证。**修法**：分开报告本地 check/test/e2e 与预览环境真实验证，网络或风控失败不能伪装成通过。
 
 ## 验证清单
 

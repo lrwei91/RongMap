@@ -3,9 +3,9 @@ const { test, expect } = require('@playwright/test');
 function fixture(count = 24) {
   return {
     mode: 'test',
-    currentUser: { id: 'admin', name: '小榕', email: 'admin@example.com', role: 'admin' },
+    currentUser: { id: 'admin', name: '小榕', email: 'admin@rongmap.local', username: 'xiaorong', role: 'admin' },
     space: { id: 'space', name: '周末去哪儿', memberCount: 2 },
-    members: [{ id: 'admin', name: '小榕', role: 'admin' }, { id: 'friend', name: '阿福', role: 'member' }],
+    members: [{ id: 'admin', name: '小榕', username: 'xiaorong', role: 'admin' }, { id: 'friend', name: '阿福', username: 'afu', role: 'member' }],
     tags: [{ id: 'weekend', name: '周末' }],
     locations: Array.from({ length: count }, (_, index) => ({ id: `loc-${index}`, name: `地点 ${index + 1}`, address: `福州市测试地址 ${index + 1}`, category: index % 2 ? 'food' : 'spot', reason: index === 2 ? '适合周末' : '', latitude: index === 0 ? null : 26.06 + index / 1000, longitude: index === 0 ? null : 119.29 + index / 1000, tags: index % 3 ? [] : [{ id: 'weekend', name: '周末' }], createdBy: index % 2 ? 'admin' : 'friend', createdAt: new Date(Date.now() - index * 3600000).toISOString(), version: 1 })),
     trash: [], trips: [], activity: [], shareLinks: []
@@ -14,6 +14,26 @@ function fixture(count = 24) {
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/v2/bootstrap', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture()) }));
+});
+
+test('member login only asks for a username', async ({ page }) => {
+  await page.goto('/auth/login');
+  await expect(page.getByRole('heading', { name: '回到亲友共享地图' })).toBeVisible();
+  await expect(page.getByLabel('用户名')).toBeVisible();
+  await expect(page.getByLabel('邮箱')).toHaveCount(0);
+  await expect(page.getByLabel('密码')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '登录', exact: true })).toBeVisible();
+  await expect(page.getByText('发送登录链接')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '登录', exact: true })).toBeDisabled();
+});
+
+test('unregistered username keeps the login form and explains why', async ({ page }) => {
+  await page.route('**/api/v2/session', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: '该用户名未注册' }) }));
+  await page.goto('/auth/login');
+  await page.getByLabel('用户名').fill('nobody');
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  await expect(page.locator('.inline-notice[role="alert"]', { hasText: '该用户名未注册' })).toBeVisible();
+  await expect(page.getByLabel('用户名')).toHaveValue('nobody');
 });
 
 test('desktop keeps the map fixed while the list grows', async ({ page }) => {
@@ -93,35 +113,35 @@ test('add location address search fills the selected POI and coordinates', async
   await expect(page.getByText('已回填地址和经纬度')).toBeVisible();
 });
 
-test('member invitation shows progress, persists pending status and blocks duplicates', async ({ page }) => {
+test('member registration shows progress, persists the username and blocks duplicates', async ({ page }) => {
   await page.unroute('**/api/v2/bootstrap');
   const data = fixture();
   await page.route('**/api/v2/bootstrap', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) }));
   await page.route('**/api/v2/members', async (route) => {
-    const email = route.request().postDataJSON().email;
-    const member = { id: 'pending', name: email.split('@')[0], email, role: 'member', status: 'invited', createdAt: new Date().toISOString() };
+    const { username, name } = route.request().postDataJSON();
+    const member = { id: 'new', username, name, email: `${username}@rongmap.local`, role: 'member', status: 'active', createdAt: new Date().toISOString() };
     data.members.push(member);
     await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(member) });
   });
   await page.goto('/app/settings');
-  await page.getByRole('textbox', { name: '受邀成员邮箱' }).fill('friend@example.com');
-  await page.getByRole('button', { name: '发送邀请' }).click();
-  await expect(page.getByText('已向 friend@example.com 发送邀请，等待对方接受。')).toBeVisible();
-  await expect(page.getByText('邀请待接受')).toBeVisible();
-  await expect(page.getByText(/friend@example.com · 邀请已发送/)).toBeVisible();
-  await page.getByRole('textbox', { name: '受邀成员邮箱' }).fill('friend@example.com');
-  await expect(page.getByRole('button', { name: '已邀请' })).toBeDisabled();
-  await expect(page.getByText('该邮箱已发送过邀请，正在等待对方加入。')).toBeVisible();
+  await page.getByRole('textbox', { name: '成员用户名' }).fill('xiaomei');
+  await page.getByRole('textbox', { name: '成员姓名' }).fill('小美');
+  await page.getByRole('button', { name: '注册成员' }).click();
+  await expect(page.getByText('已注册 xiaomei，对方现在就能用该用户名登录。')).toBeVisible();
+  await expect(page.getByText('用户名 xiaomei')).toBeVisible();
+  await page.getByRole('textbox', { name: '成员用户名' }).fill('xiaomei');
+  await expect(page.getByRole('button', { name: '已注册' })).toBeDisabled();
+  await expect(page.getByText('该用户名已经是空间成员。')).toBeVisible();
 });
 
-test('member invitation failure remains visible and keeps the email', async ({ page }) => {
-  await page.route('**/api/v2/members', (route) => route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: '邮件发送过于频繁，请稍后再试' }) }));
+test('member registration failure remains visible and keeps the username', async ({ page }) => {
+  await page.route('**/api/v2/members', (route) => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: '该用户名已被注册' }) }));
   await page.goto('/app/settings');
-  const input = page.getByRole('textbox', { name: '受邀成员邮箱' });
-  await input.fill('later@example.com');
-  await page.getByRole('button', { name: '发送邀请' }).click();
-  await expect(page.locator('.inline-notice[role="alert"]', { hasText: '邮件发送过于频繁，请稍后再试' })).toBeVisible();
-  await expect(input).toHaveValue('later@example.com');
+  const input = page.getByRole('textbox', { name: '成员用户名' });
+  await input.fill('xiaoli');
+  await page.getByRole('button', { name: '注册成员' }).click();
+  await expect(page.locator('.inline-notice[role="alert"]', { hasText: '该用户名已被注册' })).toBeVisible();
+  await expect(input).toHaveValue('xiaoli');
 });
 
 test('creates, edits, optimizes and shares a trip from selected locations', async ({ page }) => {
