@@ -50,7 +50,7 @@ export function ActivityPage({ activity, members }) {
 export function TrashPage({ trash, onRestore, onPurge, isAdmin }) {
   return (
     <main className="management-page">
-      <PageHeader eyebrow="30 天保留" title="回收站" description="成员删除的地点会在这里保留30天，管理员可永久清理。" />
+      <PageHeader eyebrow="30 天保留" title="回收站" description="成员删除的地点会在这里保留30天，到期后自动清理；管理员也可随时永久清理。" />
       <div className="data-list">
         {trash.length ? trash.map((item) => {
           const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(item.deletedAt).getTime()) / 86400000));

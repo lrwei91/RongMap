@@ -15,6 +15,7 @@ function Avatar({ member, small = false }) {
   return <span className={`avatar ${small ? 'avatar--small' : ''}`} title={member?.name || member?.email}>{label}</span>;
 }
 
+// 当前为单空间部署：空间名与成员数只读展示，尚不支持切换共享空间。
 export function SpaceSwitcher({ space, members }) {
   return (
     <button type="button" className="space-switcher" aria-label="切换共享空间">

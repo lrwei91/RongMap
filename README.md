@@ -23,9 +23,9 @@ RongMap 是面向亲友共享的福州地点地图工作台。成员可以共同
 - `/app/roadbook`：旅行路书列表，复用共享行程；支持出行需求、逐日阅读、预算、穿着与注意事项。
 - `/app/roadbook/:id`：分步向导式路书编辑（规划草案 → 出行需求 → 预算与提醒 → 完整路书）、高德当天驾车路线与天气核实、独立 HTML 导出和只读分享。
 - `/app/activity`：兼容旧链接，进入“我的”中的成员活动记录。
-- `/app/trash`：30天回收站。
+- `/app/trash`：30 天回收站；到期条目在每次 `bootstrap` 读取时惰性清理。
 - `/app/share-links`：管理员只读链接管理。
-- `/app/settings`：我的；包含空间设置、成员与标签、活动筛选、回收站和共享链接入口。
+- `/app/settings`：我的；包含只读空间概览、成员与标签、活动筛选，以及回收站和共享链接入口。空间名与空间切换当前不支持编辑。
 - `/share/:token`：无需登录的只读共享地图。
 - `/auth/login`：只填用户名的登录页；无邮箱验证、无密码、无邀请回跳。
 
@@ -61,10 +61,14 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 | `RONGMAP_DEFAULT_SPACE_ID` / `RONGMAP_DEFAULT_SPACE_NAME` | 迁移脚本使用的默认空间 |
 | `RONGMAP_LEGACY_MODE` | 仅本地旧版兼容调试设为 `1`；生产保持关闭 |
 | `KV_URL` / `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Vercel KV 兼容存储；仅迁移窗口内使用 |
-| `RONGMAP_REMOTE_FIRST` | 设为 `0` 时本地只读 KV，不再回源预发环境 |
+| `RONGMAP_REMOTE_FIRST` | 设为 `0` 时不再回源预发环境，改读本地 KV 或 JSON |
+| `RONGMAP_REMOTE_DEPLOYMENT_URL` | 指定回源的 Vercel 部署地址；缺省时自动取最新 Ready 部署 |
+| `ENV_FILE` | 迁移与重置脚本读取的环境文件；缺省为 `.env.local` |
 | `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；必填，应在高德控制台限制允许域名 |
 | `AMAP_WEB_SERVICE_KEY` | 地点搜索服务端接口；必填 |
 | `MONK_API_BASE_URL` / `MONK_MODEL` / `MONK_API_KEY` | AI 路书生成；仅服务端，默认 `https://monk.party/v1` 与 `monk` 模型 |
+
+`lib/roadbook-ai.js` 的 240 秒超时依赖 `vercel.json` 中 `api/v2/*.js` 的 `maxDuration: 300`；下调该值会让 AI 规划提前失败。`api/locations.js` 与 `api/search.js` 不在该 glob 内，使用平台默认时长。
 
 源码与 `.env.example` 已不再包含任何高德密钥，缺失时地图和搜索会直接提示缺哪个变量。这三个密钥曾以明文提交进历史，必须在高德控制台轮换后再更新 Vercel；轮换前旧密钥继续可用。
 
@@ -106,18 +110,20 @@ npm run migrate:shared       # 重建管理员、空间和地点
 | `POST /api/v2/roadbook-ai` | 当前空间地点 + 出行需求 → AI 逐日路书草案；仅返回预览，不直接保存 |
 | `POST /api/v2/roadbook` | 对当前成员空间的已保存行程，核实当天驾车路段与天气（不缓存） |
 | `/api/v2/trips` | 行程摘要、完整行程、版本化保存、路线优化和删除 |
-| `/api/v2/trash` | 恢复和管理员永久清理 |
+| `/api/v2/trash` | 恢复和管理员永久清理；`bootstrap` 会惰性清理超过 30 天的软删除地点 |
 | `POST /api/v2/bulk` | 批量标签和移入回收站 |
 | `/api/v2/import-preview` / `import-commit` | 导入预览与提交 |
 | `/api/v2/tags` / `members` | 标签和成员用户名注册管理 |
-| `POST /api/v2/session` | 用户名换取登录会话（唯一免鉴权入口） |
+| `POST /api/v2/session` | 用户名换取登录会话（免鉴权入口） |
 | `/api/v2/share-links` / `public-share` | 创建、撤销和读取只读链接 |
 
-行程路线优化使用经纬度直线距离、全起点近邻搜索和 2-opt 局部优化；未定位地点保持原相对顺序并放在当天末尾。只读链接支持完整空间和单个行程两种范围。
+行程路线优化使用经纬度直线距离、全起点近邻搜索和 2-opt 局部优化；未定位地点保持原相对顺序并放在当天末尾。只读链接支持完整空间和单个行程两种范围，该范围由 `share_links.scope` 与 `trip_id` 承载，两者由 `20260817_trips.sql` 添加；未应用该迁移时接口会降级为「完整空间」范围，单行程链接不会生效。
 
-私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。未配置 Supabase 时服务端默认关闭共享工作台，避免访客被识别成管理员。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。
+私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。空间归属由服务端按登录用户的 `space_members` 关系解析，不接受客户端指定 `spaceId`。未配置 Supabase 时服务端默认关闭共享工作台，避免访客被识别成管理员。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。更新地点时未传 `tagIds` 表示保持原有标签关联，传空数组才清空。
 
-旧 `/api/locations` 与 `/api/search` 仅在迁移发布周期内保留，服务端会返回 `Deprecation: true`、`Sunset` 和指向 `/api/v2` 的 `Link` 头；Sunset 标记日期为 2026-09-30，已过期，实际是否下线以生产路由为准。
+免鉴权接口仅两个：`POST /api/v2/session`（用户名换会话）与 `GET /api/v2/public-share`（只读链接读取）。`POST /api/search` 需要登录态（高德配额保护）且仅接受福州，其余 `/api/v2/*` 均需登录。
+
+旧 `GET/POST/PUT/DELETE /api/locations` 仍带 `Deprecation: true`、`Sunset` 和指向 `/api/v2` 的 `Link` 头；Sunset 标记日期为 2026-09-30，已过期，实际是否下线以生产路由为准。`/api/search` 仍是现役地点搜索接口，未弃用。
 
 ## 目录结构
 
@@ -130,7 +136,7 @@ src/components/ 工作台外壳、地点面板、地图画布、路书与弹层�
 supabase/       按时间戳命名的迁移脚本
 scripts/        自检、KV 备份、共享数据迁移与空间重置
 tests/          Playwright 端到端用例
-docs/           视觉改版简报等设计文档
+docs/archive/   历史设计档案（已不作为当前规范）
 artifacts/      README 截图与参考图
 ```
 
@@ -142,7 +148,7 @@ npm test            # 纯函数单元测试
 npm run test:e2e    # Playwright共享工作台关键流程
 ```
 
-视觉验收覆盖 320、390、768、1024、1440 CSS px、移动横屏、200%字体和 `prefers-reduced-motion`。真实高德地图、Supabase邮件、Realtime 和 Vercel生产路由需在预览部署环境完成最终验收。
+自动化视觉验收覆盖 320、390、768、1024、1440 CSS px 的横向溢出断言，移动横屏（844×390）、`prefers-reduced-motion` 与 200% 字号下的横向溢出断言；纵向内容可达性、真实高德地图、Supabase 邮件、Realtime 和 Vercel 生产路由需人工在预览部署环境完成最终验收。
 
 ## 旅行路书融合
 
@@ -159,3 +165,7 @@ AI 规划使用 Monk OpenAI 兼容 `chat/completions` 流式接口，由服务�
 本地在忽略提交的 `.env.local` 配置 `MONK_API_KEY`；生产在 Vercel 服务端环境变量配置同名字段，禁止使用 `VITE_` 前缀。默认服务地址为 `https://monk.party/v1`，默认模型 `monk`。请求240秒超时（贴近 Vercel 函数300秒上限，实测 5 天 20 个地点约 110 秒），响应最多512KB，服务错误不回传上游响应或请求头；提示词要求紧凑输出，避免推理token耗尽max_tokens导致草案被截断。生成过程中只发送出行需求、路书需求字段，以及选中地点的名称、地址、类别和坐标，不发送成员身份和地点私人备注。
 
 尚未接入自动搜索新地点、自动核查票价或专属 `amapuri` 行程地图生成；导航使用已有高德 URI 逐段导航，发布使用现有只读分享。
+
+## License
+
+[MIT](LICENSE)
