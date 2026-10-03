@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/v2/*.js": { "maxDuration": 60 } },
+  "functions": { "api/v2/*.js": { "maxDuration": 300 } },
   "rewrites": [
     { "source": "/app/(.*)", "destination": "/index.html" },
     { "source": "/auth/(.*)", "destination": "/index.html" },
