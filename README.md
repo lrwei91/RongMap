@@ -57,7 +57,7 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 
 ## Supabase 初始化与迁移
 
-1. 在 Supabase SQL Editor 依次执行 `20260812_shared_spaces.sql`、`20260813_harden_shared_spaces.sql`、`20260817_trips.sql`、`20260817_harden_trips.sql`、`20260901_username_only_members.sql` 和 `20261003063711_trip_roadbooks.sql`。
+1. 在 Supabase SQL Editor 依次执行 `20260812_shared_spaces.sql`、`20260813_harden_shared_spaces.sql`、`20260817_trips.sql`、`20260817_harden_trips.sql`、`20260901_username_only_members.sql`、`20261003063711_trip_roadbooks.sql` 和 `20261003082805_fix_trip_membership_after_username_migration.sql`。
 2. 在环境变量中填写首位管理员的用户名（`INITIAL_ADMIN_USERNAME`），迁移脚本会直接创建该账号。
 3. 在维护窗口冻结旧系统写入并执行 KV 备份。
 4. 设置服务端环境变量后运行：
@@ -122,7 +122,7 @@ npm run test:e2e    # Playwright共享工作台关键流程
 
 使用流程：创建路书（共享行程）→ 编排地点与日期 → 回到路书补充出行需求、花费与来源 → 保存 → 核实当天路线和天气 → 导出网页或管理员分享。出发地为需求描述，必须将出发地点加入行程首站才能核实首段路线。预算与花费均按人均计算，空白金额保留为待核实。
 
-线上使用前先执行 `supabase/migrations/20261003063711_trip_roadbooks.sql`。新增 JSON 字段和事务 RPC 沿用现有成员校验、版本冲突与分享撤销机制；RPC 仅允许服务端角色调用。迁移未应用时，路书保存会报错，不会退化为仅浏览器保存。
+线上使用前依次执行 `supabase/migrations/20261003063711_trip_roadbooks.sql` 和 `supabase/migrations/20261003082805_fix_trip_membership_after_username_migration.sql`。后者修复用户名登录迁移删除成员 `status` 列后，原行程保存函数仍引用该列的问题；权限继续由空间成员关系校验。新增 JSON 字段和事务 RPC 沿用现有成员校验、版本冲突与分享撤销机制；RPC 仅允许服务端角色调用。迁移未应用时，路书保存会报错，不会退化为仅浏览器保存。
 
 路线核实是高德逐段驾车查询，区别于原有直线距离排序优化；当天超过 5/8 小时驾驶时给出提醒。单日核实最多 25 站，每批最多 4 个并发；未定位点、失败路段明确显示未核实，不跨过未定位站拼接路线。非自驾仅查询天气，交通班次需自行核实。天气按行程日期匹配高德预报窗口，查询时间和预报发布时间显式展示。HTML 是导出快照，不包含即时天气；只读分享包含保存后的路书需求、门票预算、穿着与注意事项。
 
