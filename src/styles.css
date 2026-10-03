@@ -494,3 +494,57 @@ th { color: var(--muted); background: var(--surface-subtle); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Roadbooks use the shared paper and ink tokens, alongside the existing trip editor. */
+.my-sections { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px 0; }
+.roadbook-layout { display: grid; grid-template-columns: minmax(280px,380px) minmax(0,1fr); gap: 24px; align-items: start; }
+.roadbook-form { display: grid; gap: 16px; min-width: 0; }
+.roadbook-form .settings-card { display: grid; gap: 12px; }
+.roadbook-form label { display: grid; gap: 6px; color: var(--muted); font-size: .8rem; }
+.roadbook-form input, .roadbook-form select, .roadbook-form textarea { width: 100%; min-width: 0; }
+.roadbook-form textarea { min-height: 90px; resize: vertical; }
+.roadbook-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.roadbook-ticket { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.roadbook-ticket .text-button { justify-self: end; }
+.roadbook-reading { min-width: 0; }
+.roadbook-day { padding: 16px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--panel-radius); background: var(--surface); overflow-wrap: anywhere; }
+.roadbook-day > header { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.roadbook-day small { display: block; color: var(--muted); }
+.roadbook-day p { white-space: pre-wrap; font-size: .85rem; line-height: 1.7; }
+.roadbook-stop { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.roadbook-stop:last-child { border-bottom: 0; }
+.roadbook-stop a { display: inline-block; margin-top: 8px; font-size: .8rem; color: var(--ink); text-decoration: underline; }
+.roadbook-cost { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.public-trip__days .roadbook-day { margin: 12px; }
+@media (max-width: 1024px) { .roadbook-layout { grid-template-columns: minmax(240px,320px) minmax(0,1fr); gap: 12px; } }
+@media (max-width: 767px) {
+  .my-page { padding-top: calc(58px + env(safe-area-inset-top)); }
+  .my-page .management-page { padding-top: 20px; }
+  .my-sections { padding: 16px 16px 0; }
+  .roadbook-layout { grid-template-columns: minmax(0,1fr); }
+  .roadbook-page .page-header { display: grid; }
+  .roadbook-page .row-actions { flex-wrap: wrap; justify-content: flex-start; }
+  .roadbook-day .page-toolbar { flex-wrap: wrap; }
+}
+@media (max-width: 1024px) {
+  .roadbook-page .page-header { flex-wrap: wrap; }
+  .roadbook-page .row-actions { flex-wrap: wrap; }
+  .roadbook-day .page-toolbar { flex-wrap: wrap; }
+}
+@media (min-width: 768px) and (max-width: 900px) {
+  .roadbook-layout { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 767px) {
+  .roadbook-page, .my-page { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+}
+.roadbook-ai { margin-bottom: 24px; }
+.roadbook-ai > p { margin-top: 8px; color: var(--muted); font-size: .85rem; }
+.roadbook-ai fieldset { display: grid; min-width: 0; gap: 12px; margin: 0; padding: 0; border: 0; }
+.roadbook-ai label { display: grid; gap: 6px; font-size: .8rem; color: var(--muted); }
+.roadbook-ai textarea { min-height: 90px; padding: 10px; resize: vertical; }
+.roadbook-ai__locations { max-height: 240px; overflow-y: auto; border: 1px solid var(--line); padding: 8px; }
+.roadbook-ai__locations label { display: flex; align-items: center; gap: 10px; padding: 8px; }
+.roadbook-ai__locations input[type="checkbox"] { flex: 0 0 20px; width: 20px; min-height: 20px; }
+.roadbook-ai__locations small { display: block; overflow-wrap: anywhere; }
+.roadbook-ai__preview { padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--line); }
+.roadbook-ai__preview .row-actions { flex-wrap: wrap; }

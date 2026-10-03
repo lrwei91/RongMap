@@ -4,10 +4,10 @@ const NAV_ITEMS = [
   ['map', '地图', '⌖'],
   ['locations', '地点', '▦'],
   ['trips', '行程', '→'],
-  ['activity', '活动', '↻'],
+  ['roadbook', '路书', '⇢'],
   ['trash', '回收站', '♲'],
   ['share-links', '共享链接', '↗'],
-  ['settings', '设置', '⚙']
+  ['settings', '我的', '☰']
 ];
 
 function Avatar({ member, small = false }) {
@@ -29,7 +29,7 @@ export function SpaceSwitcher({ space, members }) {
 }
 
 export function PrimaryNav({ route, onNavigate, user, space, members, trashCount }) {
-  const activeRoute = route === 'trip' ? 'trips' : route;
+  const activeRoute = route === 'trip' ? 'trips' : route === 'activity' ? 'settings' : route;
   return (
     <aside className="primary-nav" aria-label="主导航">
       <div className="brand-lockup">
@@ -69,10 +69,11 @@ export function TopBar({ route, filteredCount, totalCount, members, onAdd, onImp
     locations: '地点管理',
     trips: '共享行程',
     trip: '行程编排',
-    activity: '活动记录',
+    roadbook: '旅行路书',
+    activity: '我的',
     trash: '回收站',
     'share-links': '共享链接',
-    settings: '空间设置'
+    settings: '我的'
   };
   return (
     <header className="top-bar">
@@ -110,12 +111,12 @@ export function MobileTopBar({ space, members, filteredCount, totalCount }) {
 }
 
 export function MobileTabBar({ route, onNavigate, onAdd }) {
-  const activeRoute = route === 'trips' || route === 'trip' ? 'locations' : route;
+  const activeRoute = route === 'trips' || route === 'trip' ? 'locations' : ['activity', 'trash', 'share-links'].includes(route) ? 'settings' : route;
   const items = [
     ['map', '地图', '⌖'],
     ['locations', '地点', '▦'],
     ['add', '添加', '+'],
-    ['activity', '活动', '↻'],
+    ['roadbook', '路书', '⇢'],
     ['settings', '我的', '☰']
   ];
   return (

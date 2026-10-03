@@ -6,6 +6,8 @@ const handlers = {
   locations: require('../../lib/api-v2/locations'),
   members: require('../../lib/api-v2/members'),
   'public-share': require('../../lib/api-v2/public-share'),
+  'roadbook-ai': require('../../lib/api-v2/roadbook-ai'),
+  roadbook: require('../../lib/api-v2/roadbook'),
   session: require('../../lib/api-v2/session'),
   'share-links': require('../../lib/api-v2/share-links'),
   tags: require('../../lib/api-v2/tags'),

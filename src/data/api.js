@@ -31,6 +31,8 @@ export const api = {
   createLocation: (body) => request('/api/v2/locations', { method: 'POST', body: JSON.stringify(body) }),
   updateLocation: (id, body) => request(`/api/v2/locations?id=${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteLocation: (id) => request(`/api/v2/locations?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  generateRoadbook: (body) => request('/api/v2/roadbook-ai', { method: 'POST', body: JSON.stringify(body) }),
+  inspectRoadbook: (tripId, dayIndex) => request('/api/v2/roadbook', { method: 'POST', body: JSON.stringify({ tripId, dayIndex }) }),
   loadTrip: (id) => request(`/api/v2/trips?id=${encodeURIComponent(id)}`),
   createTrip: (body) => request('/api/v2/trips', { method: 'POST', body: JSON.stringify(body) }),
   updateTrip: (id, body) => request(`/api/v2/trips?id=${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),

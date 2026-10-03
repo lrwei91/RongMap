@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from './components/Shell';
 import MapCanvas from './components/MapCanvas';
 import { EMPTY_FILTERS, LocationDetailDrawer, LocationPanel } from './components/Locations';
 import { ConfirmDialog, ImportWizard, LocationFormDialog, TripCreateDialog, UndoToast } from './components/Dialogs';
-import { ActivityPage, SettingsPage, ShareLinksPage, TrashPage } from './pages/ManagementPages';
+import { MyPage, ShareLinksPage, TrashPage } from './pages/ManagementPages';
 import { AuthPage, PublicSharePage } from './pages/StandalonePages';
 import { TripEditorPage, TripsPage } from './pages/Trips';
 import { api, loadBootstrap } from './data/api';
 import { downloadLocations, matchesLocation, normalizeLocation, sortLocations } from './lib/location';
 import { supabase } from './lib/supabase';
+
+const RoadbookPage = lazy(() => import('./pages/Roadbook'));
 
 const EMPTY_DATA = {
   currentUser: { id: '', name: '', role: 'member' },
@@ -22,8 +24,9 @@ function getRoute() {
   if (path.startsWith('/auth')) return { type: 'auth' };
   const parts = path.split('/').filter(Boolean);
   const page = path.startsWith('/app/') ? parts[1] : 'map';
+  if (page === 'roadbook') return { type: 'app', page: 'roadbook', tripId: parts[2] ? decodeURIComponent(parts[2]) : null };
   if (page === 'trips' && parts[2]) return { type: 'app', page: 'trip', tripId: decodeURIComponent(parts[2]) };
-  return { type: 'app', page: ['map', 'locations', 'trips', 'activity', 'trash', 'share-links', 'settings'].includes(page) ? page : 'map' };
+  return { type: 'app', page: ['map', 'locations', 'trips', 'roadbook', 'activity', 'trash', 'share-links', 'settings'].includes(page) ? page : 'map' };
 }
 
 export default function App() {
@@ -63,8 +66,8 @@ export default function App() {
 
   useEffect(() => {
     const onPopState = () => {
-      if (route.page === 'trip' && tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) {
-        window.history.pushState({}, '', `/app/trips/${encodeURIComponent(route.tripId)}`);
+      if (tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) {
+        window.history.pushState({}, '', `/app/${route.page === 'roadbook' ? 'roadbook' : 'trips'}/${encodeURIComponent(route.tripId)}`);
         return;
       }
       setTripDirty(false);
@@ -105,10 +108,17 @@ export default function App() {
   const filteredLocations = useMemo(() => sortLocations(data.locations.filter((item) => matchesLocation(item, filters)), filters.sort), [data.locations, filters]);
 
   function navigate(page) {
-    if (route.page === 'trip' && tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) return;
+    if (tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) return;
     setTripDirty(false);
     window.history.pushState({}, '', `/app/${page}`);
     setRoute({ type: 'app', page });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function openRoadbook(id) {
+    if (tripDirty && !window.confirm('路书还有未保存修改，确认离开吗？')) return;
+    setTripDirty(false);
+    window.history.pushState({}, '', `/app/roadbook/${encodeURIComponent(id)}`);
+    setRoute({ type: 'app', page: 'roadbook', tripId: id });
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function openTrip(id) {
@@ -242,7 +252,7 @@ export default function App() {
     setSelectedIds(new Set());
     await load(true);
     setNotice({ message: `已创建行程「${trip.name}」` });
-    openTrip(trip.id);
+    if (route.page === 'roadbook') openRoadbook(trip.id); else openTrip(trip.id);
     return trip;
   }
   function askDeleteTrip(trip) { setConfirm({ type: 'trip-delete', trip, title: '删除行程', message: `删除「${trip.name}」后，对应的行程只读链接也会失效。` }); }
@@ -288,10 +298,10 @@ export default function App() {
       {route.page === 'locations' ? <main className="locations-page"><LocationPanel {...sharedPanelProps} fullPage /></main> : null}
       {route.page === 'trips' ? <TripsPage trips={data.trips} onOpen={openTrip} onCreate={openTripCreate} onDelete={askDeleteTrip} onNavigate={navigate} /> : null}
       {route.page === 'trip' ? <TripEditorPage tripId={route.tripId} locations={data.locations} isAdmin={data.currentUser.role === 'admin'} onBack={() => navigate('trips')} onChanged={() => load(true)} onDirtyChange={setTripDirty} /> : null}
-      {route.page === 'activity' ? <ActivityPage activity={data.activity} members={data.members} /> : null}
+      {route.page === 'roadbook' ? <Suspense fallback={<main className="management-page">正在打开路书…</main>}><RoadbookPage locations={data.locations} trips={data.trips} tripId={route.tripId} onOpen={openRoadbook} onBack={() => navigate('roadbook')} onCreate={openTripCreate} onEditTrip={openTrip} onChanged={() => load(true)} onDirtyChange={setTripDirty} isAdmin={data.currentUser.role === 'admin'} /></Suspense> : null}
       {route.page === 'trash' ? <TrashPage trash={data.trash} onRestore={restore} onPurge={askPurge} isAdmin={data.currentUser.role === 'admin'} /> : null}
       {route.page === 'share-links' ? <ShareLinksPage links={data.shareLinks} onCreate={createShare} onRevoke={revokeShare} isAdmin={data.currentUser.role === 'admin'} /> : null}
-      {route.page === 'settings' ? <SettingsPage data={data} onAddMember={addMember} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}
+      {route.page === 'settings' || route.page === 'activity' ? <MyPage key={route.page} initialSection={route.page === 'activity' ? 'activity' : 'settings'} onNavigate={navigate} data={data} onAddMember={addMember} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}
       <LocationDetailDrawer location={activeLocation} member={data.members.find((member) => member.id === activeLocation?.createdBy)} onClose={() => setActiveLocation(null)} onFocus={focusLocation} onNavigate={navigateLocation} onShare={shareLocation} onEdit={openEdit} onDelete={askDelete} />
       {formOpen ? <LocationFormDialog location={formLocation} tags={data.tags} onClose={() => setFormOpen(false)} onSave={saveLocation} busy={busy} /> : null}
       {importOpen ? <ImportWizard onClose={() => setImportOpen(false)} onPreview={api.importPreview} onCommit={importCommit} /> : null}

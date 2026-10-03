@@ -110,3 +110,8 @@ export function SettingsPage({ data, onAddMember, onCreateTag, onDeleteTag }) {
     </main>
   );
 }
+
+export function MyPage({ initialSection = 'settings', onNavigate, ...props }) {
+  const [section, setSection] = useState(initialSection);
+  return <div className="my-page"><nav className="my-sections" aria-label="我的内容"><button className={`button ${section === 'settings' ? 'button--primary' : 'button--quiet'}`} onClick={() => setSection('settings')}>空间设置</button><button className={`button ${section === 'activity' ? 'button--primary' : 'button--quiet'}`} onClick={() => setSection('activity')}>活动记录</button><button className="button button--quiet" onClick={() => onNavigate('trash')}>回收站</button><button className="button button--quiet" onClick={() => onNavigate('share-links')}>共享链接</button></nav>{section === 'activity' ? <ActivityPage activity={props.data.activity} members={props.data.members} /> : <SettingsPage {...props} />}</div>;
+}
