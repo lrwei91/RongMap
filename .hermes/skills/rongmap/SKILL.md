@@ -92,10 +92,10 @@ vercel dev
 - [ ] `.env.local`、Supabase secret、默认密码和共享 token 未被读取或输出到结果。
 - [ ] API/权限改动覆盖鉴权、角色、空间边界、失败路径和旧兼容路由。
 - [ ] `npm run check`、`npm test`、相关 `test:e2e` 实际通过或明确记录阻塞。
-- [ ] 迁移脚本未在本轮无授权执行；生产写入前有备份和目标确认。
+- [ ] 生产写入、KV 备份、空间重置等高影响操作未在本轮无授权执行；写入前有备份和目标确认。
 - [ ] UI 改动检查 320、390、768、1024、1440 CSS px、移动横屏和 reduced-motion。
 - [ ] 文档中的路径、变量名、接口清单与实际代码一致；新增能力同步 README 与本 skill。
 
 ## references/
 
-本 skill 无 `references/` 目录。项目真源是 `README.md`（现状约定）与 `supabase/migrations/`（数据结构）；`docs/` 存放历史设计档案，不作为当前规范。
+本 skill 无 `references/` 目录。项目真源是 `README.md`；`docs/archive/` 存放历史设计档案，不作为当前规范。**仓库不含建表与迁移 SQL**——改动涉及表结构、RLS 或 RPC 时，不要在仓库里找脚本，先确认运行环境的实际 schema。
