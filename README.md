@@ -1,6 +1,18 @@
 # RongMap
 
-RongMap 是面向亲友共享的福州地点地图工作台。成员可以共同收藏、筛选、批量整理和恢复地点，管理员可以注册成员并创建可撤销的只读地图链接。
+RongMap 是面向亲友共享的福州地点地图工作台。成员可以共同收藏、筛选、批量整理和恢复地点，管理员可以注册成员并创建可撤销的只读地图链接。近期新增**旅行路书**：把共享行程编排成逐日路书，核实当天驾车路线与天气，并导出独立网页或只读分享。
+
+技术栈：React 19 + Vite 7 前端，Supabase（Auth / Postgres / Realtime）承载共享数据，Vercel 托管前端与 Serverless API，高德地图负责地理呈现，Monk 提供 AI 路书规划。
+
+## 界面
+
+桌面端路书向导（第一步：AI 规划路书）：
+
+![路书向导桌面端](artifacts/roadbook-desktop.png)
+
+移动端同一步骤：
+
+![路书向导移动端](artifacts/roadbook-mobile.png)
 
 ## 产品结构
 
@@ -9,7 +21,7 @@ RongMap 是面向亲友共享的福州地点地图工作台。成员可以共同
 - `/app/trips`：共享行程列表；可从已选地点创建逐日行程。
 - `/app/trips/:id`：分天编排、跨天移动、路线优化、撤销重做和只读分享。
 - `/app/roadbook`：旅行路书列表，复用共享行程；支持出行需求、逐日阅读、预算、穿着与注意事项。
-- `/app/roadbook/:id`：路书编辑、高德当天驾车路线与天气核实、独立 HTML 导出和只读分享。
+- `/app/roadbook/:id`：分步向导式路书编辑（规划草案 → 出行需求 → 预算与提醒 → 完整路书）、高德当天驾车路线与天气核实、独立 HTML 导出和只读分享。
 - `/app/activity`：兼容旧链接，进入“我的”中的成员活动记录。
 - `/app/trash`：30天回收站。
 - `/app/share-links`：管理员只读链接管理。
@@ -43,14 +55,16 @@ Vite 默认将 `/api` 代理到 `http://localhost:3000`。
 | 变量 | 用途 |
 | --- | --- |
 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | 浏览器认证和实时订阅 |
-| `SUPABASE_URL` / `SUPABASE_SECRET_KEY` | Serverless 管理客户端；Secret 只放服务端 |
+| `SUPABASE_URL` / `SUPABASE_SECRET_KEY` | Serverless 管理客户端；Secret 只放服务端，未设置时回落到 `SUPABASE_SERVICE_ROLE_KEY` |
 | `RONGMAP_DEFAULT_MEMBER_PASSWORD` | 服务端共享默认密码；至少 8 位，成员从不接触，只放服务端 |
 | `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_NAME` | 首位管理员的用户名与显示名 |
-| `RONGMAP_DEFAULT_SPACE_ID` | 迁移脚本使用的默认空间 |
+| `RONGMAP_DEFAULT_SPACE_ID` / `RONGMAP_DEFAULT_SPACE_NAME` | 迁移脚本使用的默认空间 |
 | `RONGMAP_LEGACY_MODE` | 仅本地旧版兼容调试设为 `1`；生产保持关闭 |
+| `KV_URL` / `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Vercel KV 兼容存储；仅迁移窗口内使用 |
+| `RONGMAP_REMOTE_FIRST` | 设为 `0` 时本地只读 KV，不再回源预发环境 |
 | `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；必填，应在高德控制台限制允许域名 |
 | `AMAP_WEB_SERVICE_KEY` | 地点搜索服务端接口；必填 |
-| `MONK_API_BASE_URL` / `MONK_MODEL` / `MONK_API_KEY` | AI 路书生成；仅服务端，默认 Monk 兼容接口与 `monk` 模型 |
+| `MONK_API_BASE_URL` / `MONK_MODEL` / `MONK_API_KEY` | AI 路书生成；仅服务端，默认 `https://monk.party/v1` 与 `monk` 模型 |
 
 源码与 `.env.example` 已不再包含任何高德密钥，缺失时地图和搜索会直接提示缺哪个变量。这三个密钥曾以明文提交进历史，必须在高德控制台轮换后再更新 Vercel；轮换前旧密钥继续可用。
 
@@ -103,7 +117,22 @@ npm run migrate:shared       # 重建管理员、空间和地点
 
 私有接口必须携带 Supabase Access Token；所有操作继续校验空间成员与角色。未配置 Supabase 时服务端默认关闭共享工作台，避免访客被识别成管理员。地点更新提交 `version`，版本不一致返回 `409` 和最新记录。
 
-旧 `/api/locations` 在迁移发布周期内继续工作，带Deprecation/Sunset 响应头。
+旧 `/api/locations` 与 `/api/search` 仅在迁移发布周期内保留，服务端会返回 `Deprecation: true`、`Sunset` 和指向 `/api/v2` 的 `Link` 头；Sunset 标记日期为 2026-09-30，已过期，实际是否下线以生产路由为准。
+
+## 目录结构
+
+```
+api/            Vercel Serverless 入口：/api/locations、/api/search、/api/v2/[route]
+lib/            领域逻辑：共享存储、成员鉴权、行程路线、路书与 AI 规划、高德封装
+lib/api-v2/     v2 各路由处理函数，测试文件与其同目录
+src/pages/      地图工作台、行程、路书、管理页与独立页
+src/components/ 工作台外壳、地点面板、地图画布、路书与弹层组件
+supabase/       按时间戳命名的迁移脚本
+scripts/        自检、KV 备份、共享数据迁移与空间重置
+tests/          Playwright 端到端用例
+docs/           视觉改版简报等设计文档
+artifacts/      README 截图与参考图
+```
 
 ## 验证
 
