@@ -98,6 +98,30 @@ h3 { margin-bottom: 0; font-size: 1rem; }
 .mobile-top-bar, .mobile-tabs { display: none; }
 
 .map-workspace { display: grid; grid-template-columns: minmax(360px, 410px) minmax(440px, 1fr); align-items: stretch; gap: 16px; min-height: 0; padding: 16px 24px 24px; overflow: hidden; }
+.map-workspace { grid-template-rows: auto minmax(0, 1fr); }
+.map-mode-switch { grid-column: 1 / -1; display: flex; width: fit-content; border: 1px solid var(--ink); background: var(--surface); }
+.map-mode-switch button { min-height: 38px; padding: 0 20px; border: 0; background: transparent; font-weight: 800; }
+.map-mode-switch button[aria-pressed="true"] { background: var(--yellow); }
+.discovery-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--panel-radius); background: var(--surface); }
+.discovery-controls { padding: 14px; border-bottom: 1px solid var(--line); }
+.discovery-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.discovery-heading h2 { margin: 0; font-size: 1rem; }
+.discovery-controls p, .discovery-controls > small { display: block; margin: 6px 0 10px; color: var(--muted); font-size: .76rem; }
+.discovery-search { width: 100%; margin-bottom: 10px; }
+.discovery-filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.discovery-options { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; font-size: .74rem; }
+.discovery-options label { display: flex; align-items: center; gap: 6px; }
+.discovery-options input { width: 16px; height: 16px; min-height: 0; margin: 0; accent-color: var(--ink); }
+.discovery-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px; }
+.discovery-summary, .discovery-hint { margin: 0 0 8px; font-size: .73rem; color: var(--muted); }
+.discovery-hint { padding: 8px; background: var(--yellow-soft); color: var(--ink); }
+.discovery-card { display: flex; align-items: center; gap: 8px; padding: 12px 8px; margin-bottom: 8px; border: 1px solid var(--line); background: var(--surface); }
+.discovery-card.is-active { border-color: var(--ink); background: var(--yellow-soft); }
+.discovery-card__main { flex: 1; min-width: 0; display: grid; gap: 5px; padding: 0; border: 0; background: transparent; text-align: left; overflow-wrap: anywhere; }
+.discovery-card__main strong { font-size: .88rem; }
+.discovery-card__main span, .discovery-card__main small { color: var(--muted); font-size: .73rem; }
+.discovery-card > .button { flex-shrink: 0; padding: 0 10px; }
+.discovery-footnote { margin: 0; padding: 10px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: .69rem; }
 .map-workspace > .location-panel { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; height: 100%; min-height: 0; overflow: hidden; }
 .map-workspace > .location-panel .location-panel__sticky { position: relative; top: auto; }
 .map-workspace > .location-panel .compact-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
@@ -422,6 +446,18 @@ th { color: var(--muted); background: var(--surface-subtle); }
   .mobile-tab--add > span { font-size: 1.8rem; line-height: 1; }
   .map-workspace { display: block; height: calc(100dvh - 66px - env(safe-area-inset-bottom)); padding: 0; overflow: hidden; }
   .map-workspace > .location-panel { display: none; }
+  .map-workspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding-top: calc(58px + env(safe-area-inset-top)); gap: 0; }
+  .map-mode-switch { width: 100%; border-width: 0 0 1px; }
+  .map-mode-switch button { flex: 1; min-height: 42px; }
+  .map-workspace.is-discover { grid-template-rows: auto minmax(150px, .4fr) minmax(0, .6fr); }
+  .is-discover > .map-card { order: 1; }
+  .is-discover > .discovery-panel { order: 2; border-radius: 0; overflow-y: auto; }
+  .discovery-controls { padding: 10px; }
+  .discovery-controls > p { display: none; }
+  .discovery-heading { margin-bottom: 8px; }
+  .discovery-results { overflow: visible; flex: none; }
+  .discovery-footnote { padding: 8px 10px; }
+  .map-workspace .map-toolbar { top: 12px; }
   .map-card { position: relative; top: 0; height: 100%; min-height: 0; border: 0; border-radius: 0; }
   .map-toolbar { top: calc(70px + env(safe-area-inset-top)); }
   .locations-page, .management-page { min-height: calc(100dvh - 72px); padding: calc(72px + env(safe-area-inset-top)) 10px 24px; }

@@ -26,12 +26,13 @@ function loadAmap() {
 function markerContent(location, active) {
   const category = CATEGORIES[location.category] || CATEGORIES.food;
   const label = location.routeOrder || category.short;
-  return `<button class="amap-location-marker ${location.routeOrder ? 'is-route' : ''} ${active ? 'is-active' : ''}" aria-label="${location.name}" type="button"><span>${label}</span></button>`;
+  const safeName = String(location.name).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+  return `<button class="amap-location-marker ${location.routeOrder ? 'is-route' : ''} ${active ? 'is-active' : ''}" aria-label="${safeName}" type="button"><span>${label}</span></button>`;
 }
 
 const ROUTE_COLORS = ['#1a1a1a', '#28704b', '#8a6410', '#315efb', '#a33d36', '#7653a6'];
 
-export default function MapCanvas({ locations, activeId, focusRequest, onSelect, publicMode = false, routeDays = [], activeDayIndex = 0 }) {
+export default function MapCanvas({ locations, activeId, focusRequest, onSelect, publicMode = false, routeDays = [], activeDayIndex = 0, onViewportChange, discovery = false }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef(new Map());
@@ -48,7 +49,7 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
       if (!containerRef.current || mapRef.current) return;
       mapRef.current = new AMap.Map(containerRef.current, {
         center: FUZHOU_CENTER,
-        zoom: 12,
+        zoom: discovery ? 15 : 12,
         viewMode: '2D',
         resizeEnable: true
       });
@@ -57,7 +58,7 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
       setStatus('error');
       setMessage(`${error.message}。地点列表仍可正常使用。`);
     }
-  }, []);
+  }, [discovery]);
 
   useEffect(() => {
     init();
@@ -70,6 +71,27 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
       mapRef.current = null;
     };
   }, [init]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (status !== 'ready' || !map || !onViewportChange) return;
+    function report() {
+      const bounds = map.getBounds?.();
+      if (!bounds) return;
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      onViewportChange({ west: sw.getLng(), south: sw.getLat(), east: ne.getLng(), north: ne.getLat() });
+    }
+    map.on('moveend', report);
+    map.on('zoomend', report);
+    map.on('resize', report);
+    report();
+    return () => {
+      map.off?.('moveend', report);
+      map.off?.('zoomend', report);
+      map.off?.('resize', report);
+    };
+  }, [status, onViewportChange]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -151,20 +173,20 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
   }
 
   return (
-    <section className="map-card" aria-label={publicMode ? '共享地点地图' : '地点地图'}>
+    <section className="map-card" aria-label={discovery ? '发现小馆地图' : publicMode ? '共享地点地图' : '地点地图'}>
       <div ref={containerRef} className="map-canvas" />
       {status !== 'ready' ? (
         <div className="map-state" role="status">
           <div className="map-state__card">
             <span className="map-state__mark" aria-hidden="true">⌖</span>
             <h2>{status === 'loading' ? '地图加载中' : '地图暂未加载'}</h2>
-            <p>{message}</p>
+            <p>{discovery && status === 'error' ? '地图暂时不可用，请重试后搜索餐馆。' : message}</p>
             {status === 'error' ? <button type="button" className="button button--primary" onClick={init}>重新加载地图</button> : null}
           </div>
         </div>
       ) : null}
       <div className="map-toolbar">
-        <span>{locations.filter(hasCoordinates).length} 个已定位</span>
+        <span>{locations.filter(hasCoordinates).length} {discovery ? '家候选' : '个已定位'}</span>
         {!publicMode ? <button type="button" className="icon-button" onClick={locate} aria-label="定位我的位置">{locating ? '…' : '◎'}</button> : null}
       </div>
     </section>

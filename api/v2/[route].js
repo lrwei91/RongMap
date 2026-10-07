@@ -1,6 +1,7 @@
 const handlers = {
   bootstrap: require('../../lib/api-v2/bootstrap'),
   bulk: require('../../lib/api-v2/bulk'),
+  discovery: require('../../lib/api-v2/discovery'),
   'import-commit': require('../../lib/api-v2/import-commit'),
   'import-preview': require('../../lib/api-v2/import-preview'),
   locations: require('../../lib/api-v2/locations'),

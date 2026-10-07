@@ -27,6 +27,7 @@ export async function loadBootstrap() {
 }
 
 export const api = {
+  discoverRestaurants: (bounds) => request('/api/v2/discovery', { method: 'POST', body: JSON.stringify({ bounds }) }),
   searchPlaces: (keywords, city = '福州') => request('/api/search', { method: 'POST', body: JSON.stringify({ keywords, city }) }),
   createLocation: (body) => request('/api/v2/locations', { method: 'POST', body: JSON.stringify(body) }),
   updateLocation: (id, body) => request(`/api/v2/locations?id=${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),

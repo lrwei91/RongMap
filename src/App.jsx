@@ -11,6 +11,7 @@ import { downloadLocations, matchesLocation, normalizeLocation, sortLocations } 
 import { supabase } from './lib/supabase';
 
 const RoadbookPage = lazy(() => import('./pages/Roadbook'));
+const Discovery = lazy(() => import('./components/Discovery'));
 
 const EMPTY_DATA = {
   currentUser: { id: '', name: '', role: 'member' },
@@ -45,6 +46,7 @@ export default function App() {
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [mapMode, setMapMode] = useState('saved');
   const [tripDirty, setTripDirty] = useState(false);
 
   const load = useCallback(async (silent = false) => {
@@ -131,7 +133,20 @@ export default function App() {
   function openAdd() { setFormLocation(undefined); setFormOpen(true); }
   function openEdit(location) { setActiveLocation(null); setFormLocation(location); setFormOpen(true); }
   function openDetail(location) { setActiveLocation(location); }
-  function focusLocation(location) { setActiveLocation(null); setFocusRequest({ ...location, focusToken: Date.now() }); if (route.page !== 'map') navigate('map'); }
+  function focusLocation(location) { setMapMode('saved'); setActiveLocation(null); setFocusRequest({ ...location, focusToken: Date.now() }); if (route.page !== 'map') navigate('map'); }
+  async function collectRestaurant(location) {
+    try {
+      await api.createLocation(location);
+      await load(true);
+      setNotice({ message: `已收藏「${location.name}」到共享地点` });
+    } catch (error) {
+      if (error.status === 409) {
+        await load(true);
+        throw new Error('该地点已在共享空间中收藏');
+      }
+      throw error;
+    }
+  }
   function navigateLocation(location) {
     const url = `https://uri.amap.com/navigation?to=${Number(location.longitude)},${Number(location.latitude)},${encodeURIComponent(location.name)}&mode=car&src=rongmap&coordinate=gaode&callnative=1`;
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -294,7 +309,13 @@ export default function App() {
   return (
     <AppShell route={route.page} onNavigate={navigate} onAdd={openAdd} onImport={() => setImportOpen(true)} data={data} filteredCount={filteredLocations.length}>
       {loadError ? <div className="global-error" role="alert"><span>!</span><p>{loadError}</p><button type="button" onClick={() => load()}>重试</button></div> : null}
-      {route.page === 'map' ? <main className="map-workspace"><LocationPanel {...sharedPanelProps} /><MapCanvas locations={filteredLocations} activeId={activeLocation?.id} focusRequest={focusRequest} onSelect={openDetail} /></main> : null}
+      {route.page === 'map' ? <main className={`map-workspace ${mapMode === 'discover' ? 'is-discover' : ''}`}>
+        <div className="map-mode-switch" role="group" aria-label="地图模式">
+          <button type="button" aria-pressed={mapMode === 'saved'} onClick={() => setMapMode('saved')}>已收藏</button>
+          <button type="button" aria-pressed={mapMode === 'discover'} onClick={() => { setActiveLocation(null); setMapMode('discover'); }}>发现小馆</button>
+        </div>
+        {mapMode === 'discover' ? <Suspense fallback={<p role="status">正在打开小馆发现…</p>}><Discovery savedLocations={data.locations} onCollect={collectRestaurant} /></Suspense> : <><LocationPanel {...sharedPanelProps} /><MapCanvas locations={filteredLocations} activeId={activeLocation?.id} focusRequest={focusRequest} onSelect={openDetail} /></>}
+      </main> : null}
       {route.page === 'locations' ? <main className="locations-page"><LocationPanel {...sharedPanelProps} fullPage /></main> : null}
       {route.page === 'trips' ? <TripsPage trips={data.trips} onOpen={openTrip} onCreate={openTripCreate} onDelete={askDeleteTrip} onNavigate={navigate} /> : null}
       {route.page === 'trip' ? <TripEditorPage tripId={route.tripId} locations={data.locations} isAdmin={data.currentUser.role === 'admin'} onBack={() => navigate('trips')} onChanged={() => load(true)} onDirtyChange={setTripDirty} /> : null}
