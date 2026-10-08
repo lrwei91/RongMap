@@ -56,12 +56,14 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const requestIdRef = useRef(0);
   const selectedPoiRef = useRef(null);
-  const skipSearchRef = useRef(true);
+  const [searchQuery, setSearchQuery] = useState(null);
+  const [searchPartial, setSearchPartial] = useState(false);
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
-  const valid = form.name.trim() && form.address.trim();
+  const valid = Boolean(form.address.trim());
+  const saveForm = () => onSave({ ...form, name: form.name.trim() || form.address.trim().slice(0, 120) });
   useEffect(() => {
-    const keyword = form.address.trim();
-    if (skipSearchRef.current) { skipSearchRef.current = false; return undefined; }
+    if (!searchQuery) return undefined;
+    const keyword = searchQuery.keyword.trim();
     if (!keyword) { requestIdRef.current += 1; setSuggestions([]); setSearchState('idle'); return undefined; }
     const requestId = ++requestIdRef.current;
     setSearchState('loading');
@@ -69,6 +71,8 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
       try {
         const result = await api.searchPlaces(keyword);
         if (requestId !== requestIdRef.current) return;
+        if (result.status && result.status !== '1') throw new Error('搜索服务暂时不可用');
+        setSearchPartial(Boolean(result.partial));
         const next = (result.pois || []).map(normalizeSearchPoi).filter(Boolean).slice(0, 8);
         setSuggestions(next);
         setActiveSuggestion(next.length ? 0 : -1);
@@ -80,21 +84,31 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
         setSearchState('error');
       }
     }, 300);
-    return () => clearTimeout(timer);
-  }, [form.address]);
+    return () => { clearTimeout(timer); requestIdRef.current += 1; };
+  }, [searchQuery]);
+
+  function updateSearch(field, value) {
+    requestIdRef.current += 1;
+    setSuggestions([]);
+    setActiveSuggestion(-1);
+    setSearchPartial(false);
+    setSearchQuery({ field, keyword: value });
+    setSearchState(value.trim() ? 'loading' : 'idle');
+  }
 
   function changeAddress(value) {
+    updateSearch('address', value);
     if (selectedPoiRef.current && value !== selectedPoiRef.current.address) {
       selectedPoiRef.current = null;
-      setForm((current) => ({ ...current, address: value, latitude: '', longitude: '', sourceId: '', matchType: '', poiType: '', city: '', district: '' }));
+      setForm((current) => ({ ...current, name: '', address: value, latitude: '', longitude: '', sourceId: '', matchType: '', poiType: '', city: '', district: '' }));
     } else set('address', value);
   }
 
   function chooseSuggestion(item) {
     selectedPoiRef.current = item;
-    skipSearchRef.current = true;
+    setSearchQuery(null);
     requestIdRef.current += 1;
-    setForm((current) => ({ ...current, name: item.name, address: item.address, latitude: item.latitude, longitude: item.longitude, sourceId: item.sourceId, sourceType: 'manual', sourcePlatform: 'web', matchType: 'manual_search', poiType: item.poiType, city: item.city, district: item.district }));
+    setForm((current) => ({ ...current, name: item.name, address: item.address, latitude: item.latitude, longitude: item.longitude, sourceId: item.sourceId, sourceType: 'manual', sourcePlatform: 'amap', matchType: 'manual_search', poiType: item.poiType, city: item.city, district: item.district }));
     setSuggestions([]);
     setActiveSuggestion(-1);
     setSearchState('selected');
@@ -107,6 +121,22 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
     if (event.key === 'ArrowUp') { event.preventDefault(); setActiveSuggestion((current) => (current <= 0 ? suggestions.length - 1 : current - 1)); }
     if (event.key === 'Enter' && activeSuggestion >= 0) { event.preventDefault(); chooseSuggestion(suggestions[activeSuggestion]); }
   }
+  function searchField() {
+    const field = 'address';
+    const active = searchQuery?.field === field;
+    const expanded = active && suggestions.length > 0;
+    const listId = `${field}-suggestions`;
+    return <div className="field field--full address-search">
+      <label htmlFor={`location-${field}`}>地址</label>
+      <input id={`location-${field}`} autoFocus role="combobox" aria-autocomplete="list" aria-expanded={expanded} aria-controls={listId} aria-activedescendant={expanded && activeSuggestion >= 0 ? `${field}-suggestion-${activeSuggestion}` : undefined} autoComplete="off" value={form[field]} maxLength={240} placeholder="输入店名或详细地址" onChange={(event) => changeAddress(event.target.value)} onKeyDown={active ? onAddressKeyDown : undefined} />
+      {active && searchState === 'loading' ? <small className="address-search__status" role="status">正在搜索高德地点…</small> : null}
+      {active && searchState === 'empty' ? <small className="address-search__status">没有匹配结果，试试简称或附近地址，也可以手动填写。</small> : null}
+      {active && searchState === 'error' ? <small className="address-search__status address-search__status--error" role="alert">地点搜索暂时不可用，可继续手动填写。</small> : null}
+      {field === 'address' && searchState === 'selected' ? <small className="address-search__status address-search__status--selected">✓ 已回填地址和经纬度</small> : null}
+      {expanded ? <div id={listId} className="address-suggestions" role="listbox" aria-label="地点联想结果">{suggestions.map((item, index) => <button id={`${field}-suggestion-${index}`} key={item.id} type="button" role="option" aria-selected={index === activeSuggestion} className={index === activeSuggestion ? 'is-active' : ''} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseSuggestion(item)}><strong>{item.name}</strong><small>{item.address}</small></button>)}</div> : null}
+      {active && searchPartial && expanded ? <small className="address-search__status">部分搜索服务暂时不可用，结果可能不完整。</small> : null}
+    </div>;
+  }
   function toggleTag(id) {
     set('tagIds', form.tagIds.includes(id) ? form.tagIds.filter((item) => item !== id) : [...form.tagIds, id]);
   }
@@ -115,11 +145,10 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
       title={location ? '编辑地点' : '添加地点'}
       eyebrow={location ? '更新共享信息' : '加入共享地图'}
       onClose={onClose}
-      footer={<><button type="button" className="button button--quiet" onClick={onClose}>取消</button><button type="button" className="button button--primary" disabled={!valid || busy} onClick={() => onSave(form)}>{busy ? '保存中…' : '保存地点'}</button></>}
+      footer={<><button type="button" className="button button--quiet" onClick={onClose}>取消</button><button type="button" className="button button--primary" disabled={!valid || busy} onClick={saveForm}>{busy ? '保存中…' : '保存地点'}</button></>}
     >
       <div className="form-grid">
-        <label className="field field--full"><span>地点名称</span><input autoFocus value={form.name} maxLength={120} placeholder="搜索或输入地点名称" onChange={(e) => set('name', e.target.value)} /></label>
-        <div className="field field--full address-search"><label htmlFor="location-address">地址</label><input id="location-address" role="combobox" aria-autocomplete="list" aria-expanded={Boolean(suggestions.length)} aria-controls="address-suggestions" aria-activedescendant={activeSuggestion >= 0 ? `address-suggestion-${activeSuggestion}` : undefined} autoComplete="off" value={form.address} maxLength={240} placeholder="输入地点名称或详细地址" onChange={(e) => changeAddress(e.target.value)} onKeyDown={onAddressKeyDown} />{searchState === 'loading' ? <small className="address-search__status" role="status">正在搜索高德地点…</small> : null}{searchState === 'empty' ? <small className="address-search__status">没有匹配结果，也可以继续手动填写。</small> : null}{searchState === 'error' ? <small className="address-search__status address-search__status--error" role="alert">地址联想暂时不可用，可继续手动填写。</small> : null}{searchState === 'selected' ? <small className="address-search__status address-search__status--selected">✓ 已回填地址和经纬度</small> : null}{suggestions.length ? <div id="address-suggestions" className="address-suggestions" role="listbox" aria-label="地址联想结果">{suggestions.map((item, index) => <button id={`address-suggestion-${index}`} key={item.id} type="button" role="option" aria-selected={index === activeSuggestion} className={index === activeSuggestion ? 'is-active' : ''} onMouseDown={(event) => { event.preventDefault(); chooseSuggestion(item); }}><strong>{item.name}</strong><small>{item.address}</small></button>)}</div> : null}</div>
+        {searchField()}
         <label className="field"><span>主分类</span><select value={form.category} onChange={(e) => set('category', e.target.value)}>{Object.entries(CATEGORIES).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}</select></label>
         <label className="field"><span>备注</span><input value={form.reason} maxLength={240} placeholder="补充推荐理由或其他说明（选填）" onChange={(e) => set('reason', e.target.value)} /></label>
         <label className="field"><span>纬度</span><input inputMode="decimal" value={form.latitude} placeholder="例如 26.061473" onChange={(e) => set('latitude', e.target.value)} /></label>

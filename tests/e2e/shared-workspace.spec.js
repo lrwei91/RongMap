@@ -109,11 +109,62 @@ test('add location address search fills the selected POI and coordinates', async
   await address.fill('银芳');
   await expect(page.getByRole('option', { name: /银芳水煮蛙/ })).toBeVisible();
   await address.press('Enter');
-  await expect(page.getByLabel('地点名称')).toHaveValue('银芳水煮蛙');
+  await expect(page.getByLabel('地点名称')).toHaveCount(0);
   await expect(address).toHaveValue('福建省福州市鼓楼区北大路1号');
   await expect(page.getByLabel('纬度')).toHaveValue('26.061473');
   await expect(page.getByLabel('经度')).toHaveValue('119.296531');
   await expect(page.getByText('已回填地址和经纬度')).toBeVisible();
+  await page.route('**/api/v2/locations', (route) => route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'new-location', ...route.request().postDataJSON() }) }));
+  const saved = page.waitForRequest((request) => request.url().endsWith('/api/v2/locations') && request.method() === 'POST');
+  await page.getByRole('button', { name: '保存地点', exact: true }).click();
+  expect((await saved).postDataJSON().name).toBe('银芳水煮蛙');
+});
+
+test('address search selects the missing store on mobile and clears coordinates when changed', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/api/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: '1', pois: [{ id: 'B0M2VZJGUT', name: '明猪平凡烤肉', cityname: '福州市', adname: '仓山区', address: '恩歌城市公寓13A商铺', location: '119.270745,26.029141' }] }) }));
+  await page.goto('/app/map');
+  await page.locator('.mobile-tab--add').click();
+  const name = page.getByRole('combobox', { name: '地址' });
+  await name.fill('明猪平凡烤肉');
+  await expect(page.getByRole('option', { name: /明猪平凡烤肉/ })).toBeVisible();
+  await name.press('Enter');
+  await expect(page.getByLabel('地址', { exact: true })).toHaveValue('福州市仓山区恩歌城市公寓13A商铺');
+  await expect(page.getByLabel('经度')).toHaveValue('119.270745');
+  await expect(page.getByLabel('纬度')).toHaveValue('26.029141');
+  await expect(page.locator('.address-suggestions [role="option"]')).toHaveCount(0);
+  await name.fill('另一家店');
+  await expect(page.getByLabel('经度')).toHaveValue('');
+  await expect(page.getByLabel('纬度')).toHaveValue('');
+  expect(await page.locator('[role="dialog"]').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test('changing search text ignores the previous in-flight response and shows service errors', async ({ page }) => {
+  let release;
+  const waiting = new Promise((resolve) => { release = resolve; });
+  await page.route('**/api/search', async (route) => {
+    if (route.request().postDataJSON().keywords === '旧店名') {
+      await waiting;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pois: [{ id: 'old', name: '过期结果', address: '旧地址' }] }) });
+    } else await route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: '搜索服务暂时不可用' }) });
+  });
+  await page.goto('/app/map');
+  await page.getByRole('button', { name: '添加地点' }).first().click();
+  const request = page.waitForRequest('**/api/search');
+  await page.getByLabel('地址', { exact: true }).fill('旧店名');
+  await request;
+  await page.getByLabel('地址', { exact: true }).fill('新地址');
+  await expect(page.getByRole('alert')).toContainText('地点搜索暂时不可用');
+  const staleResponse = page.waitForResponse((response) => response.url().endsWith('/api/search') && response.status() === 200);
+  release();
+  await staleResponse;
+  await expect(page.locator('.address-suggestions [role="option"]')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('地点搜索暂时不可用');
+  await page.route('**/api/v2/locations', (route) => route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'manual-location', ...route.request().postDataJSON() }) }));
+  const saved = page.waitForRequest((request) => request.url().endsWith('/api/v2/locations') && request.method() === 'POST');
+  await page.getByRole('button', { name: '保存地点', exact: true }).click();
+  expect((await saved).postDataJSON()).toMatchObject({ name: '新地址', address: '新地址' });
+
 });
 
 test('member registration shows progress, persists the username and blocks duplicates', async ({ page }) => {
