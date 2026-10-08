@@ -27,6 +27,9 @@ export async function loadBootstrap() {
 }
 
 export const api = {
+  queryTravelSource: (body) => request('/api/v2/travel-guide', { method: 'POST', body: JSON.stringify({ ...body, action: 'source' }) }),
+  collectTravelGuide: (body) => request('/api/v2/travel-guide', { method: 'POST', body: JSON.stringify({ ...body, action: 'collect' }) }),
+  generateTravelGuide: (body) => request('/api/v2/travel-guide', { method: 'POST', body: JSON.stringify({ ...body, action: 'generate' }) }),
   discoverRestaurants: (bounds) => request('/api/v2/discovery', { method: 'POST', body: JSON.stringify({ bounds }) }),
   searchPlaces: (keywords, city = '福州') => request('/api/search', { method: 'POST', body: JSON.stringify({ keywords, city }) }),
   createLocation: (body) => request('/api/v2/locations', { method: 'POST', body: JSON.stringify(body) }),

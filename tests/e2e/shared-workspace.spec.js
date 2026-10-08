@@ -78,8 +78,8 @@ test('search, filter and mobile navigation remain operable', async ({ page }) =>
   await page.goto('/app/locations');
   await page.getByRole('searchbox', { name: '搜索地点' }).fill('周末');
   await expect(page.locator('.location-card__copy > strong', { hasText: '地点 3' })).toBeVisible();
-  await page.locator('.mobile-tab', { hasText: '路书' }).click();
-  await expect(page.getByRole('heading', { name: '旅行路书', exact: true })).toBeVisible();
+  await page.locator('.mobile-tab', { hasText: '攻略' }).click();
+  await expect(page.getByRole('heading', { name: '规划一份旅行攻略', exact: true })).toBeVisible();
   await page.locator('.mobile-tab', { hasText: '我的' }).click();
   await page.getByRole('button', { name: '活动记录', exact: true }).click();
   await expect(page.getByRole('heading', { name: '活动记录' })).toBeVisible();
@@ -308,73 +308,6 @@ async function mockRoadbook(page) {
   await page.route('**/api/v2/roadbook', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ queriedAt: '2026-10-03T03:00:00Z', source: '高德地图 Web 服务', complete: true, segments: [{ index: 1, from: '三坊七巷', to: '西湖公园', km: 2.5, hours: 0.2 }], weather: [{ city: '福州', reportTime: '2026-10-03 10:00', casts: [{ date: '2026-10-03', dayweather: '晴', nightweather: '多云', nighttemp: '22', daytemp: '29' }] }], warnings: [] }) }));
 }
 
-test('roadbook saves costs, reloads, inspects live data and exports a standalone page', async ({ page }) => {
-  await mockRoadbook(page);
-  await page.goto('/app/roadbook');
-  await page.getByRole('button', { name: /福州两日慢游/ }).click();
-  await expect(page.getByRole('button', { name: '规划草案' })).toHaveAttribute('aria-current', 'step');
-  await page.getByRole('button', { name: '预算与提醒' }).click();
-  await page.getByRole('button', { name: '添加花费项目' }).click();
-  await page.getByLabel('项目名称').fill('门票');
-  await page.getByLabel('金额（元/人）').fill('50');
-  await page.getByLabel('来源与核实日期').fill('景区官网 2026-10-03');
-  await page.getByRole('button', { name: '完整路书' }).click();
-  await expect(page.getByRole('button', { name: '导出路书网页' })).toBeDisabled();
-  await page.getByRole('button', { name: '保存路书' }).click();
-  await expect(page.getByRole('status', { name: '' }).filter({ hasText: '路书已保存' })).toBeVisible();
-  await page.reload();
-  await page.getByRole('button', { name: '预算与提醒' }).click();
-  await expect(page.getByLabel('金额（元/人）')).toHaveValue('50');
-  await page.getByRole('button', { name: '完整路书' }).click();
-  await page.getByRole('button', { name: '核实当天路线与天气' }).click();
-  await expect(page.getByText('2026-10-03 · 晴 / 多云 · 22–29℃')).toBeVisible();
-  await expect(page.getByText(/当天路段合计：2.5 km/)).toBeVisible();
-  const downloaded = page.waitForEvent('download');
-  await page.getByRole('button', { name: '导出路书网页' }).click();
-  const file = await downloaded;
-  expect(file.suggestedFilename()).toBe('福州两日慢游-路书.html');
-  await expect(page.getByRole('link', { name: '高德导航至本站' })).toHaveAttribute('href', /uri.amap.com\/navigation/);
-});
-
-test('roadbook preserves edits on conflict and keeps activity filters in My', async ({ page }) => {
-  await mockRoadbook(page);
-  await page.route('**/api/v2/trips?id=road-1', async (route) => route.request().method() === 'PUT' ? route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: '版本冲突' }) }) : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(roadbookFixture()) }));
-  await page.goto('/app/roadbook/road-1');
-  await page.getByRole('button', { name: '预算与提醒' }).click();
-  await page.getByLabel('注意事项').fill('保留我的修改');
-  await page.getByRole('button', { name: '保存路书' }).click();
-  await expect(page.getByText('其他成员已更新行程，请载入最新版本后重新应用修改。')).toBeVisible();
-  await expect(page.getByLabel('注意事项')).toHaveValue('保留我的修改');
-  page.once('dialog', (dialog) => dialog.dismiss());
-  await page.locator('.nav-item', { hasText: '我的' }).click();
-  await expect(page.getByLabel('注意事项')).toBeVisible();
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.locator('.nav-item', { hasText: '我的' }).click();
-  await page.getByRole('button', { name: '活动记录', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '福州两日慢游' })).toBeVisible();
-  await page.getByLabel('按成员筛选').selectOption('admin');
-  await expect(page.getByText('暂无匹配活动')).toBeVisible();
-});
-
-for (const width of [320, 390, 768, 1024, 1440]) {
-  test(`roadbook and My fit ${width}px without horizontal overflow`, async ({ page }) => {
-    await mockRoadbook(page);
-    await page.setViewportSize({ width, height: 900 });
-    await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
-    await page.goto('/app/roadbook/road-1');
-    await expect(page.getByRole('heading', { name: '福州两日慢游' })).toBeVisible();
-    await expect(page.locator('.roadbook-steps li')).toHaveCount(4);
-    await expect(page.getByRole('button', { name: '规划草案' })).toHaveAttribute('aria-current', 'step');
-    if (width === 390) await page.screenshot({ path: 'artifacts/roadbook-mobile.png', fullPage: true });
-    if (width === 1440) await page.screenshot({ path: 'artifacts/roadbook-desktop.png', fullPage: true });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
-    await page.goto('/app/settings');
-    await page.getByRole('button', { name: '活动记录', exact: true }).click();
-    await expect(page.getByLabel('按成员筛选')).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
-  });
-}
-
 test('public trip sharing includes the saved roadbook without edit controls', async ({ page }) => {
   await page.route('**/api/v2/public-share?token=roadbook-test', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ type: 'trip', trip: roadbookFixture() }) }));
   await page.goto('/share/roadbook-test');
@@ -383,76 +316,86 @@ test('public trip sharing includes the saved roadbook without edit controls', as
   await expect(page.getByRole('button', { name: '保存路书' })).toHaveCount(0);
 });
 
-test('roadbook supports enlarged text and mobile landscape without script errors', async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await mockRoadbook(page);
-  await page.setViewportSize({ width: 844, height: 390 });
-  await page.goto('/app/roadbook/road-1');
-  await page.getByRole('button', { name: '预算与提醒' }).click();
-  await expect(page.getByLabel('注意事项')).toBeVisible();
-  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
-  await page.getByLabel('注意事项').fill('长文本'.repeat(200));
-  await page.getByRole('button', { name: '保存路书' }).click();
-  await page.getByRole('button', { name: '完整路书' }).click();
-  await expect(page.getByRole('button', { name: '导出路书网页' })).toBeEnabled();
-  expect(errors).toEqual([]);
+test('installation metadata and PNG icons are available without a session', async ({ request }) => {
+  const html = await (await request.get('/auth/login')).text();
+  expect(html).toContain('rel="apple-touch-icon"');
+  expect(html).toContain('name="apple-mobile-web-app-title" content="RongMap"');
+  const response = await request.get('/manifest.webmanifest');
+  expect(response.ok()).toBeTruthy();
+  const manifest = await response.json();
+  expect(manifest.start_url).toBe('/app/map');
+  expect(manifest.display).toBe('standalone');
+  for (const icon of [{ src: '/apple-touch-icon.png', sizes: '180x180' }, ...manifest.icons]) {
+    const image = await request.get(icon.src);
+    expect(image.status()).toBe(200);
+    expect(image.headers()['content-type']).toContain('image/png');
+    const png = await image.body();
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    const size = Number(icon.sizes.split('x')[0]);
+    expect(png.readUInt32BE(16)).toBe(size);
+    expect(png.readUInt32BE(20)).toBe(size);
+  }
 });
 
-test('AI roadbook previews selected locations, applies a draft and saves the generated days', async ({ page }) => {
-  await mockRoadbook(page);
-  let requestBody;
-  let saves = 0;
-  await page.route('**/api/v2/trips?id=road-1', (route) => {
-    if (route.request().method() === 'PUT') {
-      saves += 1;
-      const saved = { ...route.request().postDataJSON(), version: 2 };
-      expect(saved.days).toHaveLength(2);
-      expect(saved.days[1].items[0].name).toBe('西湖公园');
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(saved) });
-    }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(roadbookFixture()) });
-  });
-  await page.route('**/api/v2/roadbook-ai', async (route) => {
-    requestBody = route.request().postDataJSON();
-    const original = roadbookFixture();
-    const proposal = { ...original, roadbook: { ...original.roadbook, clothing: 'AI 衣物建议' }, days: [{ dayIndex: 1, title: '老城', items: [original.days[0].items[0]] }, { dayIndex: 2, title: '湖畔', items: [original.days[0].items[1]] }] };
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ trip: proposal, warnings: ['待核实'] }) });
-  });
-  await page.goto('/app/roadbook/road-1');
-  await page.getByLabel('旅行需求').fill('带长辈两日慢游');
-  await page.getByLabel('规划天数').fill('2');
-  await page.getByRole('button', { name: '生成路书草案' }).click();
-  await expect(page.getByRole('heading', { name: 'AI 草案预览' })).toBeVisible();
-  expect(saves).toBe(0);
-  expect(requestBody.requirements).toBe('带长辈两日慢游');
-  expect(requestBody.dayCount).toBe(2);
-  await page.getByRole('button', { name: '应用到路书草稿' }).click();
-  await page.getByRole('button', { name: '预算与提醒' }).click();
-  await expect(page.getByLabel('穿着建议')).toHaveValue('AI 衣物建议');
-  await expect(page.getByRole('button', { name: '保存路书' })).toBeEnabled();
-  expect(saves).toBe(0);
-  await page.getByRole('button', { name: '保存路书' }).click();
-  await expect(page.getByRole('button', { name: '已保存' })).toBeVisible();
-  expect(saves).toBe(1);
+test('mobile sheets isolate background and restore focus without losing search', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/locations');
+  await page.getByRole('searchbox', { name: '搜索地点' }).fill('地点 2');
+  await page.getByRole('searchbox', { name: '搜索地点' }).press('Escape');
+  const trigger = page.locator('.location-card__main').first();
+  await trigger.click();
+  const drawer = page.getByRole('dialog');
+  await expect(drawer).toBeVisible();
+  expect(await page.locator('.locations-page').evaluate((node) => node.inert)).toBe(true);
+  expect(await page.locator('.mobile-tabs').evaluate((node) => node.inert)).toBe(true);
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+  const close = drawer.getByRole('button', { name: '关闭详情' });
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(drawer.getByRole('button', { name: '移入回收站' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page.getByRole('searchbox', { name: '搜索地点' })).toHaveValue('地点 2');
+  expect(await page.locator('.locations-page').evaluate((node) => node.inert)).toBe(false);
+  expect(await page.locator('.mobile-tabs').evaluate((node) => node.inert)).toBe(false);
 });
 
-test('AI failure preserves edits and allows retry with explicitly selected library places', async ({ page }) => {
-  await mockRoadbook(page);
-  let requestBody;
-  await page.route('**/api/v2/roadbook-ai', (route) => { requestBody = route.request().postDataJSON(); return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'AI服务繁忙，请稍后重试' }) }); });
-  await page.goto('/app/roadbook/road-1');
-  await page.getByRole('button', { name: '预算与提醒' }).click();
-  await page.getByLabel('注意事项').fill('保留已有草稿');
-  await page.getByRole('button', { name: '规划草案' }).click();
-  await page.getByLabel('旅行需求').fill('周末游');
-  await page.getByLabel('地点来源').selectOption('library');
-  await page.getByRole('button', { name: '生成路书草案' }).click();
-  await expect(page.getByRole('alert')).toHaveText('AI服务繁忙，请稍后重试');
-  await page.getByRole('button', { name: '预算与提醒' }).click();
-  await expect(page.getByLabel('注意事项')).toHaveValue('保留已有草稿');
-  await page.getByRole('button', { name: '规划草案' }).click();
-  await expect(page.getByRole('button', { name: '生成路书草案' })).toBeEnabled();
-  expect(requestBody.locationIds).toHaveLength(12);
+test('narrow mobile controls and keyboard-sized sheets remain reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/app/locations');
+  await expect(page.locator('.location-card').first()).toBeVisible();
+  for (const selector of ['.filter-toggle', '.location-card .icon-button', '.mobile-tab']) {
+    const boxes = await page.locator(selector).evaluateAll((nodes) => nodes.map((node) => { const box = node.getBoundingClientRect(); return { width: box.width, height: box.height }; }));
+    expect(boxes.length).toBeGreaterThan(0);
+    expect(boxes.every((box) => box.width >= 44 && box.height >= 44)).toBe(true);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: '添加', exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 360 });
+  const dialog = page.getByRole('dialog');
+  const footer = dialog.locator('.modal-footer');
+  const body = dialog.locator('.modal-body');
+  await expect(footer.getByRole('button', { name: '取消' })).toBeVisible();
+  await expect.poll(() => footer.evaluate((node) => node.getBoundingClientRect().bottom <= innerHeight)).toBe(true);
+  expect(await body.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+  await footer.getByRole('button', { name: '取消' }).click();
+  expect(await page.locator('.app-shell').evaluate((node) => node.inert)).toBe(false);
+});
+
+test('closing a confirmation and its underlying sheet releases the scroll lock', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route(/\/api\/v2\/locations(?:\?|$)/, (route) => route.fulfill({ json: {} }));
+  await page.goto('/app/locations');
+  await page.locator('.location-card__main').first().click();
+  await page.getByRole('button', { name: '移入回收站', exact: true }).click();
+  const confirm = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: '取消', exact: true }) });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button', { name: '移入回收站', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('');
+  expect(await page.locator('.locations-page').evaluate((node) => node.inert)).toBe(false);
+  expect(await page.locator('.mobile-tabs').evaluate((node) => node.inert)).toBe(false);
 });

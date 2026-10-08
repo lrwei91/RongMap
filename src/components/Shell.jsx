@@ -4,7 +4,7 @@ const NAV_ITEMS = [
   ['map', '地图', '⌖'],
   ['locations', '地点', '▦'],
   ['trips', '行程', '→'],
-  ['roadbook', '路书', '⇢'],
+  ['travel', '攻略', '⇢'],
   ['trash', '回收站', '♲'],
   ['share-links', '共享链接', '↗'],
   ['settings', '我的', '☰']
@@ -70,7 +70,7 @@ export function TopBar({ route, filteredCount, totalCount, members, onAdd, onImp
     locations: '地点管理',
     trips: '共享行程',
     trip: '行程编排',
-    roadbook: '旅行路书',
+    travel: '旅行攻略',
     activity: '我的',
     trash: '回收站',
     'share-links': '共享链接',
@@ -117,7 +117,7 @@ export function MobileTabBar({ route, onNavigate, onAdd }) {
     ['map', '地图', '⌖'],
     ['locations', '地点', '▦'],
     ['add', '添加', '+'],
-    ['roadbook', '路书', '⇢'],
+    ['travel', '攻略', '⇢'],
     ['settings', '我的', '☰']
   ];
   return (

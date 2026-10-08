@@ -10,7 +10,7 @@ import { api, loadBootstrap } from './data/api';
 import { downloadLocations, matchesLocation, normalizeLocation, sortLocations } from './lib/location';
 import { supabase } from './lib/supabase';
 
-const RoadbookPage = lazy(() => import('./pages/Roadbook'));
+const TravelGuidePage = lazy(() => import('./pages/TravelGuide'));
 const Discovery = lazy(() => import('./components/Discovery'));
 
 const EMPTY_DATA = {
@@ -25,9 +25,12 @@ function getRoute() {
   if (path.startsWith('/auth')) return { type: 'auth' };
   const parts = path.split('/').filter(Boolean);
   const page = path.startsWith('/app/') ? parts[1] : 'map';
-  if (page === 'roadbook') return { type: 'app', page: 'roadbook', tripId: parts[2] ? decodeURIComponent(parts[2]) : null };
+  if (page === 'roadbook' || page === 'travel') {
+    if (page === 'roadbook') window.history.replaceState({}, '', path.replace('/app/roadbook', '/app/travel'));
+    return { type: 'app', page: 'travel', tripId: parts[2] ? decodeURIComponent(parts[2]) : null };
+  }
   if (page === 'trips' && parts[2]) return { type: 'app', page: 'trip', tripId: decodeURIComponent(parts[2]) };
-  return { type: 'app', page: ['map', 'locations', 'trips', 'roadbook', 'activity', 'trash', 'share-links', 'settings'].includes(page) ? page : 'map' };
+  return { type: 'app', page: ['map', 'locations', 'trips', 'travel', 'activity', 'trash', 'share-links', 'settings'].includes(page) ? page : 'map' };
 }
 
 export default function App() {
@@ -69,7 +72,7 @@ export default function App() {
   useEffect(() => {
     const onPopState = () => {
       if (tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) {
-        window.history.pushState({}, '', `/app/${route.page === 'roadbook' ? 'roadbook' : 'trips'}/${encodeURIComponent(route.tripId)}`);
+        window.history.pushState({}, '', route.tripId ? `/app/${route.page === 'travel' ? 'travel' : 'trips'}/${encodeURIComponent(route.tripId)}` : `/app/${route.page}`);
         return;
       }
       setTripDirty(false);
@@ -116,11 +119,11 @@ export default function App() {
     setRoute({ type: 'app', page });
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
-  function openRoadbook(id) {
-    if (tripDirty && !window.confirm('路书还有未保存修改，确认离开吗？')) return;
+  function openGuide(id, { saved = false } = {}) {
+    if (!saved && tripDirty && !window.confirm('攻略还有未保存修改，确认离开吗？')) return;
     setTripDirty(false);
-    window.history.pushState({}, '', `/app/roadbook/${encodeURIComponent(id)}`);
-    setRoute({ type: 'app', page: 'roadbook', tripId: id });
+    window.history.pushState({}, '', `/app/travel/${encodeURIComponent(id)}`);
+    setRoute({ type: 'app', page: 'travel', tripId: id });
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function openTrip(id) {
@@ -267,7 +270,7 @@ export default function App() {
     setSelectedIds(new Set());
     await load(true);
     setNotice({ message: `已创建行程「${trip.name}」` });
-    if (route.page === 'roadbook') openRoadbook(trip.id); else openTrip(trip.id);
+    if (route.page === 'travel') openGuide(trip.id); else openTrip(trip.id);
     return trip;
   }
   function askDeleteTrip(trip) { setConfirm({ type: 'trip-delete', trip, title: '删除行程', message: `删除「${trip.name}」后，对应的行程只读链接也会失效。` }); }
@@ -319,7 +322,7 @@ export default function App() {
       {route.page === 'locations' ? <main className="locations-page"><LocationPanel {...sharedPanelProps} fullPage /></main> : null}
       {route.page === 'trips' ? <TripsPage trips={data.trips} onOpen={openTrip} onCreate={openTripCreate} onDelete={askDeleteTrip} onNavigate={navigate} /> : null}
       {route.page === 'trip' ? <TripEditorPage tripId={route.tripId} locations={data.locations} isAdmin={data.currentUser.role === 'admin'} onBack={() => navigate('trips')} onChanged={() => load(true)} onDirtyChange={setTripDirty} /> : null}
-      {route.page === 'roadbook' ? <Suspense fallback={<main className="management-page">正在打开路书…</main>}><RoadbookPage locations={data.locations} trips={data.trips} tripId={route.tripId} onOpen={openRoadbook} onBack={() => navigate('roadbook')} onCreate={openTripCreate} onEditTrip={openTrip} onChanged={() => load(true)} onDirtyChange={setTripDirty} isAdmin={data.currentUser.role === 'admin'} /></Suspense> : null}
+      {route.page === 'travel' ? <Suspense fallback={<main className="management-page">正在打开旅行攻略…</main>}><TravelGuidePage trips={data.trips} tripId={route.tripId} onOpen={openGuide} onBack={() => navigate('travel')} onEditTrip={openTrip} onChanged={() => load(true)} onDirtyChange={setTripDirty} isAdmin={data.currentUser.role === 'admin'} /></Suspense> : null}
       {route.page === 'trash' ? <TrashPage trash={data.trash} onRestore={restore} onPurge={askPurge} isAdmin={data.currentUser.role === 'admin'} /> : null}
       {route.page === 'share-links' ? <ShareLinksPage links={data.shareLinks} onCreate={createShare} onRevoke={revokeShare} isAdmin={data.currentUser.role === 'admin'} /> : null}
       {route.page === 'settings' || route.page === 'activity' ? <MyPage key={route.page} initialSection={route.page === 'activity' ? 'activity' : 'settings'} onNavigate={navigate} data={data} onAddMember={addMember} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}

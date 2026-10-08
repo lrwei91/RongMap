@@ -53,7 +53,7 @@ export default function Discovery({ savedLocations, onCollect }) {
         </div>
         <div className="discovery-options"><label><input type="checkbox" checked={filters.includeUnknown} onChange={(event) => change('includeUnknown', event.target.checked)} />保留价格未知</label><label><input type="checkbox" checked={filters.hideChains} onChange={(event) => change('hideChains', event.target.checked)} />隐藏常见连锁</label></div>
       </div>
-      <div className="discovery-results" aria-busy={loading}>
+      <div className="discovery-results" tabIndex={0} aria-label="发现小馆结果" aria-busy={loading}>
         {error ? <p className="inline-notice inline-notice--error" role="alert">{error}{result ? '。下方保留上次结果。' : ''}</p> : null}
         {result?.partial ? <p className="inline-notice inline-notice--warning" role="status">部分区域搜索失败，结果不完整，请重试。</p> : null}
         {moved ? <p className="discovery-hint" role="status">地图范围已改变，点击搜索刷新结果。</p> : null}

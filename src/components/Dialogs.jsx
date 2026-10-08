@@ -1,40 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../data/api';
 import { CATEGORIES, normalizeSearchPoi } from '../lib/location';
+import { useModalSurface } from '../lib/useModalSurface';
 
 function Modal({ title, eyebrow, children, footer, onClose, wide = false }) {
-  const dialogRef = useRef(null);
+  const layerRef = useRef(null);
   const closeRef = useRef(null);
-  useEffect(() => {
-    const previous = document.activeElement;
-    const bodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    closeRef.current?.focus();
-    function onKeyDown(event) {
-      if (event.key === 'Escape') onClose();
-      if (event.key !== 'Tab') return;
-      const focusable = [...dialogRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = bodyOverflow;
-      previous?.focus?.();
-    };
-  }, [onClose]);
+  useModalSurface(layerRef, true, onClose);
   return (
-    <div className="modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section ref={dialogRef} className={`modal ${wide ? 'modal--wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div ref={layerRef} className="modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className={`modal ${wide ? 'modal--wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header className="modal-header">
           <div><p className="eyebrow">{eyebrow}</p><h2 id="modal-title">{title}</h2></div>
           <button ref={closeRef} type="button" className="icon-button" aria-label="关闭" onClick={onClose}>×</button>
         </header>
-        <div className="modal-body">{children}</div>
+        <div className="modal-body" tabIndex={0} aria-label="对话框内容">{children}</div>
         {footer ? <footer className="modal-footer">{footer}</footer> : null}
       </section>
     </div>

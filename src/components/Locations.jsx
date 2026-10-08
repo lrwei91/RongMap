@@ -1,3 +1,4 @@
+import { useModalSurface } from '../lib/useModalSurface';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, SOURCE_LABELS, hasCoordinates, relativeTime } from '../lib/location';
 
@@ -35,6 +36,7 @@ export function LocationSearch({ value, onChange, locations, onSelect }) {
       onSelect?.(suggestions[activeIndex]);
       setOpen(false);
     } else if (event.key === 'Escape') {
+      event.preventDefault();
       setOpen(false);
     }
   }
@@ -181,7 +183,7 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
         </div>
       </div>
       <BulkActionBar count={selectedIds.size} tags={tags} onApply={onBulk} onCreateTrip={onCreateTrip} onClear={onClearSelection} />
-      <div className="compact-list">
+      <div className="compact-list" tabIndex={0} aria-label="地点列表">
         {locations.length ? locations.slice(0, visibleCount).map((location) => (
           <CompactLocationCard
             key={location.id}
@@ -216,27 +218,21 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
 }
 
 export function LocationDetailDrawer({ location, member, onClose, onFocus, onNavigate, onShare, onEdit, onDelete }) {
+  const layerRef = useRef(null);
   const closeRef = useRef(null);
-  useEffect(() => {
-    if (!location) return;
-    const previous = document.activeElement;
-    closeRef.current?.focus();
-    const onKey = (event) => event.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('keydown', onKey); previous?.focus?.(); };
-  }, [location, onClose]);
+  useModalSurface(layerRef, Boolean(location), onClose);
   if (!location) return null;
   const category = CATEGORIES[location.category] || CATEGORIES.food;
   const hasPoint = hasCoordinates(location);
   return (
-    <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div ref={layerRef} className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <aside className="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title">
         <header className="drawer-header">
           <span className={`category-square category-square--${location.category}`}>{category.short}</span>
           <div><p className="eyebrow">地点详情</p><h2 id="detail-title">{location.name}</h2></div>
           <button ref={closeRef} type="button" className="icon-button" onClick={onClose} aria-label="关闭详情">×</button>
         </header>
-        <div className="drawer-body">
+        <div className="drawer-body" tabIndex={0} aria-label="地点详情内容">
           <section><h3>地址</h3><p>{location.address}</p></section>
           <section><h3>备注</h3><p>{location.reason || '暂无备注'}</p></section>
           <section><h3>分类与标签</h3><div className="tag-row"><span className="tag tag--strong">{category.label}</span>{(location.tags || []).map((tag) => <span className="tag" key={tag.id || tag}>{tag.name || tag}</span>)}</div></section>

@@ -13,6 +13,7 @@ const handlers = {
   'share-links': require('../../lib/api-v2/share-links'),
   tags: require('../../lib/api-v2/tags'),
   trips: require('../../lib/api-v2/trips'),
+  'travel-guide': require('../../lib/api-v2/travel-guide'),
   trash: require('../../lib/api-v2/trash')
 };
 

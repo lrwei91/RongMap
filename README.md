@@ -1,18 +1,18 @@
 # RongMap
 
-亲友共享的地点地图与旅行路书工作台。成员共同收藏、筛选、批量整理地点，管理员注册成员并创建可撤销的只读链接；行程可以编排成逐日路书，核实当天驾车路线与天气，导出独立网页。
+亲友共享的地点地图与旅行攻略工作台。成员共同收藏、整理地点，填写目的地和旅行需求，从候选地点生成逐日攻略，核验路线与天气，保存、导出或分享给亲友。
 
-React 19 + Vite 7 前端，Supabase 承载认证、Postgres 与 Realtime，Vercel 托管前端与 Serverless API，高德负责地图与路线，Monk 提供 AI 路书规划。
+React 19 + Vite 7 前端，Supabase 承载认证、Postgres 与 Realtime，Vercel 托管前端与 Serverless API，高德负责地图与路线，DeepSeek 提供 AI 旅行规划。
 
 ## 界面
 
-桌面端路书向导（第一步：AI 规划路书）：
+桌面端旅行攻略预览（本地浏览器运行，示例测试数据）：
 
-![路书向导桌面端](artifacts/roadbook-desktop.png)
+![旅行攻略桌面端](artifacts/travel-guide-desktop.png)
 
-移动端同一步骤：
+移动端同一份攻略（示例测试数据）：
 
-![路书向导移动端](artifacts/roadbook-mobile.png)
+![旅行攻略移动端](artifacts/travel-guide-mobile.png)
 
 ## 功能
 
@@ -20,9 +20,11 @@ React 19 + Vite 7 前端，Supabase 承载认证、Postgres 与 Realtime，Verce
 
 **行程**　`/app/trips` 从已选地点生成逐日行程，`/app/trips/:id` 分天编排、跨天移动、路线优化、撤销重做。路线优化用直线距离 + 全起点近邻搜索 + 2-opt 局部优化，未定位地点保持原相对顺序并置于当天末尾。
 
-**路书**　`/app/roadbook/:id` 四步向导：规划草案 → 出行需求 → 预算与提醒 → 完整路书。路线与天气核实、网页导出、只读分享仅在最后一步可用；未保存时保持禁用。核实走高德逐段驾车查询（单日最多 25 站、每批 4 并发），驾驶超 5/8 小时给出提醒；未定位点与失败路段显式标注，不跨未定位站拼接路线。天气按行程日期匹配预报窗口，查询时间与预报发布时间一并展示。导出的 HTML 是快照，不含即时天气。
+**旅行攻略**　`/app/travel` 替代原路书 tab：填写目的地城市、日期、天数、预算、同行人、已订住宿与硬约束 → 搜集和核对景点／餐饮候选 → 生成攻略预览 → 保存到共享行程。阅读页包括总览、逐日时间轴、美食候选、住宿逻辑、雨天备选、避坑与预约清单、来源状态。旧 `/app/roadbook/:id` 链接转到 `/app/travel/:id`，既有行程和路书数据仍可读取。
 
-**AI 规划**　服务端调用 Monk 的 OpenAI 兼容接口，服务端汇总并校验结构后返回草案，最多 60 个候选地点，模型不得编造 ID 或坐标。名称、地址、坐标一律以服务端真源为准；AI 票价强制留空待核实。请求 240 秒超时，响应上限 512KB，服务错误不回传上游响应体或请求头。生成过程只发送出行需求与所选地点的名称、地址、类别、坐标，不发送成员身份和地点私人备注。
+**来源与核验**　高德提供地址、坐标、平台返回的商户信息，以及保存后的驾车／步行／公交路线与预报窗口内天气。可选小红书／点评 MCP 以只读工具采集；小红书搜索与最多两篇详情串行执行，每次详情独立请求，点评同样最多两家商户详情。未配置、失败、仅搜索和已读详情的范围分别标注。手动补充来源时需粘贴摘录，链接不会自动抓取全文。不同来源的同名商户不自动视为同一分店或已完成交叉验证。
+
+**AI 规划**　服务端调用 DeepSeek 官方接口（默认 `deepseek-flash`），最多选择 24 个已查询候选、规划 1–14 天。候选凭证有 30 分钟有效期，并绑定用户和空间；服务端验证模型地点 ID，坐标与名称从查询快照回填。AI 票价强制留空，用户的人数／交通／预算不会被模型改写。需求、所选地点及补充来源摘录会发送给 AI，成员身份和凭据不会发送。鉴权失败返回可读配置错误，生成失败保留需求并允许重试。保存使用已有事务 RPC；导出为自包含 HTML 快照，包含当页已查询的路线与天气，分享页展示已保存攻略。
 
 **协作**　用户名登录（无邮箱验证、无密码）；管理员在 `/app/settings` 注册成员，对方即刻可用该用户名登录。30 天回收站（`bootstrap` 读取时惰性清理到期条目）。共享链接支持完整空间或单个行程两种范围，可随时撤销。
 
@@ -45,7 +47,9 @@ npm run dev
 | `SUPABASE_URL` / `SUPABASE_SECRET_KEY` | Serverless 管理客户端；Secret 只放服务端，未设置时回落到 `SUPABASE_SERVICE_ROLE_KEY` |
 | `VITE_AMAP_WEB_KEY` / `VITE_AMAP_SECURITY_CODE` | 高德 JS 地图；应在高德控制台限制允许域名 |
 | `AMAP_WEB_SERVICE_KEY` | 地点搜索与路线核实（服务端） |
-| `MONK_API_BASE_URL` / `MONK_MODEL` / `MONK_API_KEY` | AI 路书规划；仅服务端，勿用 `VITE_` 前缀 |
+| `DEEPSEEK_API_BASE_URL` / `DEEPSEEK_MODEL` / `DEEPSEEK_API_KEY` | DeepSeek AI 旅行规划；仅服务端，勿用 `VITE_` 前缀 |
+| `XHS_MCP_URL` / `CN_SCRAPER_URL` | 可选小红书／点评 MCP 服务端地址；留空显示未接入。云端不能访问 Mac 的 localhost |
+| `XHS_MCP_TOKEN` / `CN_SCRAPER_TOKEN` | 可选服务网关 Bearer 认证，仅服务端；平台 Cookie 由 MCP 服务本机保存 |
 | `RONGMAP_DEFAULT_MEMBER_PASSWORD` | 成员共享默认密码，至少 8 位，只放服务端 |
 | `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_NAME` | 首位管理员的用户名与显示名 |
 
@@ -62,8 +66,9 @@ npm run dev
 | `GET /api/v2/bootstrap` | 空间、成员、地点、行程摘要、标签、活动、回收站与链接 |
 | `/api/v2/locations` | 创建、版本化更新、软删除 |
 | `/api/v2/trips` | 行程摘要、详情、版本化保存、路线优化、删除 |
-| `POST /api/v2/roadbook-ai` | 出行需求 + 地点 → AI 逐日草案，仅返回预览 |
-| `POST /api/v2/roadbook` | 核实已保存行程当天的驾车路段与天气（不缓存） |
+| `POST /api/v2/travel-guide` | `collect` 搜集候选；`source` 采集单一来源／详情；`generate` 返回逐日攻略预览 |
+| `POST /api/v2/roadbook-ai` | 旧版逐日草案兼容接口，前端不再提供原路书向导 |
+| `POST /api/v2/roadbook` | 核实已保存行程当天所选交通方式的路段与天气（不缓存） |
 | `/api/v2/tags` / `members` | 标签管理、成员用户名注册 |
 | `/api/v2/bulk` / `import-preview` / `import-commit` | 批量操作与导入 |
 | `/api/v2/trash` | 恢复与管理员永久清理 |
@@ -101,7 +106,7 @@ npm run test:e2e    # Playwright 端到端
 - AI 建议的时间、票价、预约均为草案，路线与天气由高德单独核实。
 - 未接入自动搜索新地点、自动核查票价、专属行程地图生成；导航复用高德 URI 逐段导航，发布复用只读分享。
 - 空间名与空间切换当前不支持编辑（单空间部署）。
-- 路书设计参考 [travel-roadbook-skill](https://github.com/SpaceZephyr/travel-roadbook-skill)，以 React + 共享行程 + 高德 Web 服务重新实现。
+- 旅行攻略工作流参考 [travel-agent](https://github.com/huahuanao/travel-agent)，以 React + 共享行程 + 可选 MCP + 高德 Web 服务重新实现，保留上游及其依赖项目的归属。集成与限制见 [旅行攻略说明](docs/travel-guide.md)。
 
 ## License
 

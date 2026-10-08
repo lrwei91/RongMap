@@ -1,0 +1,12 @@
+export const EMPTY_TRAVEL_REQUEST = { destination: '', startDate: '', dayCount: 3, travelers: 2, budget: '', mode: 'car', origin: '', hotel: '', preferences: '', constraints: '' };
+const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+export function guideHtml(trip, content) {
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(trip.name)}</title><style>body{font:16px/1.7 system-ui,sans-serif;max-width:960px;margin:32px auto;padding:16px;color:#1a1a1a;background:#fff}h1,h3,p{margin-top:0}h3{margin-bottom:12px}header,.guide-facts{display:flex;gap:16px;flex-wrap:wrap}header{justify-content:space-between}.guide-section{border-top:1px solid #ddd;padding:24px 0}.guide-overview,.guide-food-list,.guide-sources{display:grid;gap:16px}.guide-overview a{display:grid;border:1px solid #ddd;padding:16px}.guide-source,.guide-food-list article{border:1px solid #ddd;padding:16px}.guide-source div{display:flex;justify-content:space-between;gap:12px}.guide-source small{display:block}.guide-timeline{padding-left:24px}.guide-timeline li{padding:12px 0}.guide-timeline time{font-weight:bold}.guide-caution{background:#fff6d6;padding:12px}.guide-unverified,small{color:#666}.guide-route{background:#eef7f2;padding:8px}a{color:#315efb;overflow-wrap:anywhere}p,li,strong{overflow-wrap:anywhere;white-space:pre-wrap}.guide-advice-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}@media(max-width:600px){.guide-advice-grid{grid-template-columns:1fr}body{margin:0}}@media print{a{color:inherit}.guide-section{break-inside:avoid}}</style></head><body><h1>${escape(trip.name)}</h1><p>${escape(trip.startDate || '出发日期待定')} · ${trip.days.length} 天</p>${content}<footer><p>由 RongMap 导出。来源与路线为查询时快照；AI 建议、票价、开放时间和预约要求请在出发前核实。</p></footer></body></html>`;
+}
+export function downloadGuide(trip, element) {
+  const copy = element.cloneNode(true);
+  copy.querySelectorAll('button').forEach((button) => button.remove());
+  const url = URL.createObjectURL(new Blob([guideHtml(trip, copy.innerHTML)], { type: 'text/html;charset=utf-8' }));
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${trip.name.replace(/[\\/:*?"<>|]/g, '-')}-攻略.html`; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
