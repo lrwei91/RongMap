@@ -3,15 +3,21 @@ import { AppShell } from './components/Shell';
 import MapCanvas from './components/MapCanvas';
 import { EMPTY_FILTERS, LocationDetailDrawer, LocationPanel } from './components/Locations';
 import { ConfirmDialog, ImportWizard, LocationFormDialog, TripCreateDialog, UndoToast } from './components/Dialogs';
-import { MyPage, ShareLinksPage, TrashPage } from './pages/ManagementPages';
-import { AuthPage, PublicSharePage } from './pages/StandalonePages';
-import { TripEditorPage, TripsPage } from './pages/Trips';
 import { api, loadBootstrap } from './data/api';
-import { downloadLocations, matchesLocation, normalizeLocation, sortLocations } from './lib/location';
+import { downloadLocations, matchesLocation, sortLocations } from './lib/location';
 import { supabase } from './lib/supabase';
 
 const TravelGuidePage = lazy(() => import('./pages/TravelGuide'));
 const Discovery = lazy(() => import('./components/Discovery'));
+
+const MyPage = lazy(() => import('./pages/ManagementPages').then((module) => ({ default: module.MyPage })));
+const ShareLinksPage = lazy(() => import('./pages/ManagementPages').then((module) => ({ default: module.ShareLinksPage })));
+const TrashPage = lazy(() => import('./pages/ManagementPages').then((module) => ({ default: module.TrashPage })));
+const AuthPage = lazy(() => import('./pages/StandalonePages').then((module) => ({ default: module.AuthPage })));
+const PublicSharePage = lazy(() => import('./pages/StandalonePages').then((module) => ({ default: module.PublicSharePage })));
+const TripEditorPage = lazy(() => import('./pages/Trips').then((module) => ({ default: module.TripEditorPage })));
+const TripsPage = lazy(() => import('./pages/Trips').then((module) => ({ default: module.TripsPage })));
+const PAGE_FALLBACK = <main className="management-page" role="status">正在打开页面…</main>;
 
 const EMPTY_DATA = {
   currentUser: { id: '', name: '', role: 'member' },
@@ -56,7 +62,7 @@ export default function App() {
     if (!silent) setLoading(true);
     try {
       const next = await loadBootstrap();
-      setData({ ...EMPTY_DATA, ...next, locations: (next.locations || []).map(normalizeLocation) });
+      setData({ ...EMPTY_DATA, ...next });
       setLoadError('');
     } catch (error) {
       if (error.status === 401 && route.type === 'app') {
@@ -281,8 +287,8 @@ export default function App() {
     finally { setBusy(false); }
   }
 
-  if (route.type === 'auth') return <AuthPage />;
-  if (route.type === 'share') return <PublicSharePage token={route.token} />;
+  if (route.type === 'auth') return <Suspense fallback={PAGE_FALLBACK}><AuthPage /></Suspense>;
+  if (route.type === 'share') return <Suspense fallback={PAGE_FALLBACK}><PublicSharePage token={route.token} /></Suspense>;
   if (loading) return <main className="boot-state"><span className="brand-dot" /><p className="eyebrow">RONGMAP</p><h1>正在打开共享地图</h1><div className="skeleton-line" /></main>;
 
   const sharedPanelProps = {
@@ -320,12 +326,14 @@ export default function App() {
         {mapMode === 'discover' ? <Suspense fallback={<p role="status">正在打开小馆发现…</p>}><Discovery savedLocations={data.locations} onCollect={collectRestaurant} /></Suspense> : <><LocationPanel {...sharedPanelProps} /><MapCanvas locations={filteredLocations} activeId={activeLocation?.id} focusRequest={focusRequest} onSelect={openDetail} /></>}
       </main> : null}
       {route.page === 'locations' ? <main className="locations-page"><LocationPanel {...sharedPanelProps} fullPage /></main> : null}
-      {route.page === 'trips' ? <TripsPage trips={data.trips} onOpen={openTrip} onCreate={openTripCreate} onDelete={askDeleteTrip} onNavigate={navigate} /> : null}
-      {route.page === 'trip' ? <TripEditorPage tripId={route.tripId} locations={data.locations} isAdmin={data.currentUser.role === 'admin'} onBack={() => navigate('trips')} onChanged={() => load(true)} onDirtyChange={setTripDirty} /> : null}
-      {route.page === 'travel' ? <Suspense fallback={<main className="management-page">正在打开旅行攻略…</main>}><TravelGuidePage trips={data.trips} tripId={route.tripId} onOpen={openGuide} onBack={() => navigate('travel')} onEditTrip={openTrip} onChanged={() => load(true)} onDirtyChange={setTripDirty} isAdmin={data.currentUser.role === 'admin'} /></Suspense> : null}
-      {route.page === 'trash' ? <TrashPage trash={data.trash} onRestore={restore} onPurge={askPurge} isAdmin={data.currentUser.role === 'admin'} /> : null}
-      {route.page === 'share-links' ? <ShareLinksPage links={data.shareLinks} onCreate={createShare} onRevoke={revokeShare} isAdmin={data.currentUser.role === 'admin'} /> : null}
-      {route.page === 'settings' || route.page === 'activity' ? <MyPage key={route.page} initialSection={route.page === 'activity' ? 'activity' : 'settings'} onNavigate={navigate} data={data} onAddMember={addMember} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}
+      <Suspense fallback={PAGE_FALLBACK}>
+        {route.page === 'trips' ? <TripsPage trips={data.trips} onOpen={openTrip} onCreate={openTripCreate} onDelete={askDeleteTrip} onNavigate={navigate} /> : null}
+        {route.page === 'trip' ? <TripEditorPage tripId={route.tripId} locations={data.locations} isAdmin={data.currentUser.role === 'admin'} onBack={() => navigate('trips')} onChanged={() => load(true)} onDirtyChange={setTripDirty} /> : null}
+        {route.page === 'travel' ? <Suspense fallback={<main className="management-page">正在打开旅行攻略…</main>}><TravelGuidePage trips={data.trips} tripId={route.tripId} onOpen={openGuide} onBack={() => navigate('travel')} onEditTrip={openTrip} onChanged={() => load(true)} onDirtyChange={setTripDirty} isAdmin={data.currentUser.role === 'admin'} /></Suspense> : null}
+        {route.page === 'trash' ? <TrashPage trash={data.trash} onRestore={restore} onPurge={askPurge} isAdmin={data.currentUser.role === 'admin'} /> : null}
+        {route.page === 'share-links' ? <ShareLinksPage links={data.shareLinks} onCreate={createShare} onRevoke={revokeShare} isAdmin={data.currentUser.role === 'admin'} /> : null}
+        {route.page === 'settings' || route.page === 'activity' ? <MyPage key={route.page} initialSection={route.page === 'activity' ? 'activity' : 'settings'} onNavigate={navigate} data={data} onAddMember={addMember} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}
+      </Suspense>
       <LocationDetailDrawer location={activeLocation} member={data.members.find((member) => member.id === activeLocation?.createdBy)} onClose={() => setActiveLocation(null)} onFocus={focusLocation} onNavigate={navigateLocation} onShare={shareLocation} onEdit={openEdit} onDelete={askDelete} />
       {formOpen ? <LocationFormDialog location={formLocation} tags={data.tags} onClose={() => setFormOpen(false)} onSave={saveLocation} busy={busy} /> : null}
       {importOpen ? <ImportWizard onClose={() => setImportOpen(false)} onPreview={api.importPreview} onCommit={importCommit} /> : null}

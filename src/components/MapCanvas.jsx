@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, hasCoordinates } from '../lib/location';
 import { locateOnAmap } from '../lib/geolocation';
 
@@ -31,9 +31,10 @@ function markerContent(location, active) {
   return `<button class="amap-location-marker ${location.routeOrder ? 'is-route' : ''} ${active ? 'is-active' : ''}" aria-label="${safeName}" type="button"><span>${label}</span></button>`;
 }
 
+const EMPTY_ROUTE_DAYS = [];
 const ROUTE_COLORS = ['#1a1a1a', '#28704b', '#8a6410', '#315efb', '#a33d36', '#7653a6'];
 
-export default function MapCanvas({ locations, activeId, focusRequest, onSelect, publicMode = false, routeDays = [], activeDayIndex = 0, onViewportChange, discovery = false }) {
+export default function MapCanvas({ locations, activeId, focusRequest, onSelect, publicMode = false, routeDays = EMPTY_ROUTE_DAYS, activeDayIndex = 0, onViewportChange, discovery = false }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef(new Map());
@@ -42,10 +43,14 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
   const accuracyCircleRef = useRef(null);
   const locationRequestRef = useRef(0);
   const locationPendingRef = useRef(false);
+  const onSelectRef = useRef(onSelect);
+  const locatedLocations = useMemo(() => locations.filter(hasCoordinates), [locations]);
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('正在连接高德地图。');
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
+
+  useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
 
   const init = useCallback(async () => {
     setStatus('loading');
@@ -109,33 +114,41 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
     const map = mapRef.current;
     const AMap = window.AMap;
     if (!map || !AMap?.Marker || status !== 'ready') return;
-    const nextIds = new Set(locations.filter(hasCoordinates).map((item) => item.id));
+    const nextIds = new Set(locatedLocations.map((item) => item.id));
     markersRef.current.forEach((marker, id) => {
       if (!nextIds.has(id)) {
         marker.setMap(null);
         markersRef.current.delete(id);
       }
     });
-    locations.filter(hasCoordinates).forEach((location) => {
+    locatedLocations.forEach((location) => {
       let marker = markersRef.current.get(location.id);
+      const position = [Number(location.longitude), Number(location.latitude)];
+      const content = markerContent(location, location.id === activeId);
+      const zIndex = location.id === activeId ? 120 : 100;
       if (!marker) {
         marker = new AMap.Marker({
-          position: [Number(location.longitude), Number(location.latitude)],
+          position,
           anchor: 'bottom-center',
-          content: markerContent(location, location.id === activeId),
+          content,
+          zIndex,
           title: location.name,
           map
         });
-        marker.on('click', () => onSelect(marker.__rongmapLocation));
+        marker.on('click', () => onSelectRef.current?.(marker.__rongmapLocation));
         markersRef.current.set(location.id, marker);
       } else {
-        marker.setContent?.(markerContent(location, location.id === activeId));
-        marker.setPosition?.([Number(location.longitude), Number(location.latitude)]);
+        if (marker.__rongmapContent !== content) marker.setContent?.(content);
+        if (marker.__rongmapPosition[0] !== position[0] || marker.__rongmapPosition[1] !== position[1]) marker.setPosition?.(position);
+        if (marker.__rongmapZIndex !== zIndex) marker.setzIndex?.(zIndex);
+        if (marker.__rongmapLocation.name !== location.name) marker.setTitle?.(location.name);
       }
       marker.__rongmapLocation = location;
-      marker.setzIndex?.(location.id === activeId ? 120 : 100);
+      marker.__rongmapContent = content;
+      marker.__rongmapPosition = position;
+      marker.__rongmapZIndex = zIndex;
     });
-  }, [locations, activeId, onSelect, status]);
+  }, [locatedLocations, activeId, status]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -222,7 +235,7 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
         </div>
       ) : null}
       <div className="map-toolbar">
-        <span>{locations.filter(hasCoordinates).length} {discovery ? '家候选' : '个已定位'}</span>
+        <span>{locatedLocations.length} {discovery ? '家候选' : '个已定位'}</span>
         {!publicMode ? <button type="button" className="icon-button" onClick={locate} disabled={status !== 'ready' || locating} aria-busy={locating} aria-label="定位我的位置">{locating ? '…' : '◎'}</button> : null}
       </div>
       {!publicMode && locationMessage ? <div className="map-location-status" role="status">{locationMessage}</div> : null}

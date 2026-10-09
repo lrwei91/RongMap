@@ -259,7 +259,7 @@ test('renders a trip-scoped public share without edit actions', async ({ page })
   await page.goto('/share/TRIP_TOKEN');
   await expect(page.getByRole('heading', { name: '福州两日游' })).toBeVisible();
   await expect(page.getByText('第 1 天')).toBeVisible();
-  await expect(page.getByRole('button', { name: /三坊七巷/ })).toBeVisible();
+  await expect(page.locator('.public-trip__days').getByRole('button', { name: /三坊七巷/ })).toBeVisible();
   await expect(page.getByRole('button', { name: '保存行程' })).toHaveCount(0);
   await expect(page.getByText('只读', { exact: true })).toBeVisible();
 });

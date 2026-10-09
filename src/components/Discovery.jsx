@@ -17,7 +17,7 @@ export default function Discovery({ savedLocations, onCollect }) {
   useEffect(() => () => { generation.current++; }, []);
   useEffect(() => { if (selected) cards.current.get(selected.id)?.scrollIntoView({ block: 'nearest' }); }, [selected]);
   const visible = useMemo(() => filterRestaurants(result?.restaurants || [], filters), [result, filters]);
-  const savedIds = new Set(savedLocations.map((item) => item.sourceId).filter(Boolean));
+  const savedIds = useMemo(() => new Set(savedLocations.map((item) => item.sourceId).filter(Boolean)), [savedLocations]);
   const tooWide = bounds && (bounds.east - bounds.west > 0.12 || bounds.north - bounds.south > 0.12);
   const moved = result && bounds && ['west', 'south', 'east', 'north'].some((key) => Math.abs(bounds[key] - result.bounds[key]) > 0.0005);
   function change(key, value) { setFilters((previous) => ({ ...previous, [key]: value })); }

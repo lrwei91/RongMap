@@ -65,6 +65,12 @@ export function TripEditorPage({ tripId, locations, isAdmin, onBack, onChanged, 
   const [locationToAdd, setLocationToAdd] = useState('');
   const [status, setStatus] = useState({ type: 'loading', message: '正在加载行程…' });
   const dragRef = useRef(null);
+  const routeDays = useMemo(() => (draft?.days || []).map((day) => ({ ...day, items: day.items.map((item, index) => ({ ...item, id: item.id || `${day.dayIndex}-${index}`, routeDayIndex: day.dayIndex, routeOrder: index + 1 })) })), [draft?.days]);
+  const mapItems = useMemo(() => routeDays.flatMap((day) => day.items), [routeDays]);
+  const availableLocations = useMemo(() => {
+    const usedIds = new Set(mapItems.map((item) => item.locationId).filter(Boolean));
+    return locations.filter((item) => !usedIds.has(item.id));
+  }, [locations, mapItems]);
 
   const load = useCallback(async () => {
     setStatus({ type: 'loading', message: '正在加载行程…' });
@@ -74,7 +80,8 @@ export function TripEditorPage({ tripId, locations, isAdmin, onBack, onChanged, 
     } catch (error) { setStatus({ type: 'error', message: error.message }); }
   }, [tripId]);
   useEffect(() => { load(); }, [load]);
-  const dirty = Boolean(draft && JSON.stringify(draft) !== savedSnapshot);
+  const draftSnapshot = useMemo(() => draft ? JSON.stringify(draft) : '', [draft]);
+  const dirty = Boolean(draft && draftSnapshot !== savedSnapshot);
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   useEffect(() => {
@@ -166,10 +173,6 @@ export function TripEditorPage({ tripId, locations, isAdmin, onBack, onChanged, 
 
   if (!draft) return <main className="management-page"><div className={`inline-notice${status.type === 'error' ? ' inline-notice--error' : ''}`} role="status"><span>{status.type === 'error' ? '!' : '…'}</span>{status.message}</div></main>;
   const activeDay = draft.days.find((day) => day.dayIndex === activeDayIndex) || draft.days[0];
-  const usedIds = new Set(draft.days.flatMap((day) => day.items.map((item) => item.locationId).filter(Boolean)));
-  const availableLocations = locations.filter((item) => !usedIds.has(item.id));
-  const mapItems = draft.days.flatMap((day) => day.items.map((item, index) => ({ ...item, id: item.id || `${day.dayIndex}-${index}`, routeDayIndex: day.dayIndex, routeOrder: index + 1 })));
-  const routeDays = draft.days.map((day) => ({ ...day, items: day.items.map((item, index) => ({ ...item, id: item.id || `${day.dayIndex}-${index}`, routeOrder: index + 1 })) }));
   return (
     <main className="trip-editor">
       <section className="trip-editor__panel">
