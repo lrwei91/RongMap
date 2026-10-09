@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CATEGORIES, hasCoordinates } from '../lib/location';
+import { locateOnAmap } from '../lib/geolocation';
 
 const FUZHOU_CENTER = [119.296531, 26.061473];
 let amapPromise;
@@ -37,9 +38,14 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
   const mapRef = useRef(null);
   const markersRef = useRef(new Map());
   const polylinesRef = useRef([]);
+  const userMarkerRef = useRef(null);
+  const accuracyCircleRef = useRef(null);
+  const locationRequestRef = useRef(0);
+  const locationPendingRef = useRef(false);
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('正在连接高德地图。');
   const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState('');
 
   const init = useCallback(async () => {
     setStatus('loading');
@@ -63,6 +69,12 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
   useEffect(() => {
     init();
     return () => {
+      locationRequestRef.current++;
+      locationPendingRef.current = false;
+      userMarkerRef.current?.setMap(null);
+      userMarkerRef.current = null;
+      accuracyCircleRef.current?.setMap(null);
+      accuracyCircleRef.current = null;
       markersRef.current.forEach((marker) => marker.setMap?.(null));
       markersRef.current.clear();
       polylinesRef.current.forEach((line) => line.setMap?.(null));
@@ -156,20 +168,44 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
     map.setZoomAndCenter?.(17, [Number(focusRequest.longitude), Number(focusRequest.latitude)]);
   }, [focusRequest]);
 
-  function locate() {
-    if (!navigator.geolocation || !mapRef.current) return;
+  async function locate() {
+    const map = mapRef.current;
+    if (!map || status !== 'ready' || locationPendingRef.current) return;
+    const requestId = ++locationRequestRef.current;
+    locationPendingRef.current = true;
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        mapRef.current.setZoomAndCenter?.(16, [coords.longitude, coords.latitude]);
+    setLocationMessage('正在获取你的位置…');
+    try {
+      const AMap = window.AMap;
+      const { position, accuracy } = await locateOnAmap(AMap);
+      if (requestId !== locationRequestRef.current || map !== mapRef.current) return;
+      if (!userMarkerRef.current) {
+        userMarkerRef.current = new AMap.Marker({
+          position, anchor: 'center', zIndex: 200, title: '我的位置',
+          content: '<span class="amap-user-marker" role="img" aria-label="我的位置"></span>',
+          map
+        });
+      } else {
+        userMarkerRef.current.setPosition(position);
+      }
+      accuracyCircleRef.current?.setMap(null);
+      accuracyCircleRef.current = Number.isFinite(accuracy) && accuracy > 0 && AMap.Circle ? new AMap.Circle({
+        center: position, radius: accuracy, strokeColor: '#315efb', strokeOpacity: 0.4,
+        strokeWeight: 1, fillColor: '#315efb', fillOpacity: 0.1, zIndex: 50, bubble: true, map
+      }) : null;
+      map.setZoomAndCenter?.(16, position);
+      setLocationMessage(Number.isFinite(accuracy) && accuracy > 0 ?
+        `已定位，精度约 ${Math.ceil(accuracy)} 米${accuracy > 100 ? '；当前信号较弱，位置可能有偏差' : ''}` : '已定位');
+    } catch (error) {
+      if (requestId === locationRequestRef.current && map === mapRef.current) {
+        setLocationMessage(`${error.message}${userMarkerRef.current ? '；地图保留上次位置' : ''}`);
+      }
+    } finally {
+      if (requestId === locationRequestRef.current) {
+        locationPendingRef.current = false;
         setLocating(false);
-      },
-      () => {
-        setLocating(false);
-        setStatus('ready');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      }
+    }
   }
 
   return (
@@ -187,8 +223,9 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
       ) : null}
       <div className="map-toolbar">
         <span>{locations.filter(hasCoordinates).length} {discovery ? '家候选' : '个已定位'}</span>
-        {!publicMode ? <button type="button" className="icon-button" onClick={locate} aria-label="定位我的位置">{locating ? '…' : '◎'}</button> : null}
+        {!publicMode ? <button type="button" className="icon-button" onClick={locate} disabled={status !== 'ready' || locating} aria-busy={locating} aria-label="定位我的位置">{locating ? '…' : '◎'}</button> : null}
       </div>
+      {!publicMode && locationMessage ? <div className="map-location-status" role="status">{locationMessage}</div> : null}
     </section>
   );
 }
