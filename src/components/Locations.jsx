@@ -179,7 +179,7 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
         <FilterBar filters={filters} onChange={onFilters} members={members} tags={tags} />
         <div className="list-summary">
           <label><input type="checkbox" checked={locations.length > 0 && locations.every((item) => selectedIds.has(item.id))} onChange={() => onSelectAll(locations)} /> 全选当前</label>
-          <span><strong>{locations.length}</strong> / {allLocations.length}</span>
+          <span><strong>{locations.length}</strong> / {allLocations.length} 个地点</span>
         </div>
       </div>
       <BulkActionBar count={selectedIds.size} tags={tags} onApply={onBulk} onCreateTrip={onCreateTrip} onClear={onClearSelection} />
@@ -201,8 +201,10 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
           <div className="empty-state">
             <span aria-hidden="true">⌖</span>
             <h3>没有匹配的地点</h3>
-            <p>{allLocations.length ? '调整筛选条件后再试。' : '添加第一个地点，开始共享地图。'}</p>
-            <button type="button" className="button button--primary" onClick={onAdd}>添加地点</button>
+            <p>{allLocations.length ? '调整筛选条件，或清空后查看全部地点。' : '添加第一个地点，开始共享地图。'}</p>
+            {allLocations.length
+              ? <button type="button" className="button button--quiet" onClick={() => onFilters({ ...EMPTY_FILTERS, sort: filters.sort })}>清空筛选</button>
+              : <button type="button" className="button button--primary" onClick={onAdd}>添加地点</button>}
           </div>
         )}
         {visibleCount < locations.length ? <button type="button" className="load-more" onClick={() => setVisibleCount((count) => count + 80)}>继续加载 {locations.length - visibleCount} 个地点</button> : null}
@@ -237,7 +239,7 @@ export function LocationDetailDrawer({ location, member, onClose, onFocus, onNav
           <section><h3>备注</h3><p>{location.reason || '暂无备注'}</p></section>
           <section><h3>分类与标签</h3><div className="tag-row"><span className="tag tag--strong">{category.label}</span>{(location.tags || []).map((tag) => <span className="tag" key={tag.id || tag}>{tag.name || tag}</span>)}</div></section>
           <section className="detail-grid"><div><h3>添加者</h3><p>{member?.name || location.createdByName || '空间成员'}</p></div><div><h3>添加时间</h3><p>{new Date(location.createdAt).toLocaleString('zh-CN')}</p></div></section>
-          {!hasPoint ? <div className="inline-notice inline-notice--warning"><span>!</span>该地点尚未定位，聚焦、导航和海报暂不可用。</div> : null}
+          {!hasPoint ? <div className="inline-notice inline-notice--warning"><span>!</span>该地点尚未定位，聚焦、导航和分享暂不可用。</div> : null}
         </div>
         <footer className="drawer-actions">
           <button type="button" className="button button--primary" disabled={!hasPoint} onClick={() => onFocus(location)}>聚焦地图</button>

@@ -43,6 +43,7 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
   const accuracyCircleRef = useRef(null);
   const locationRequestRef = useRef(0);
   const locationPendingRef = useRef(false);
+  const autoFitRef = useRef(false);
   const onSelectRef = useRef(onSelect);
   const locatedLocations = useMemo(() => locations.filter(hasCoordinates), [locations]);
   const [status, setStatus] = useState('loading');
@@ -86,6 +87,7 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
       polylinesRef.current = [];
       mapRef.current?.destroy?.();
       mapRef.current = null;
+      autoFitRef.current = false;
     };
   }, [init]);
 
@@ -174,6 +176,17 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
       polylinesRef.current = [];
     };
   }, [routeDays, activeDayIndex, status]);
+
+  // 首次进入：有已定位地点且没有显式聚焦请求时，把视野适配到数据范围。
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready' || discovery || autoFitRef.current) return;
+    if (focusRequest) { autoFitRef.current = true; return; }
+    const overlays = [...markersRef.current.values(), ...polylinesRef.current];
+    if (!overlays.length) return;
+    map.setFitView?.(overlays, true, [64, 64, 64, 64], 15);
+    autoFitRef.current = true;
+  }, [status, locatedLocations, routeDays, focusRequest, discovery]);
 
   useEffect(() => {
     const map = mapRef.current;

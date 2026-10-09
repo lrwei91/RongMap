@@ -130,7 +130,7 @@ export function LocationFormDialog({ location, tags, onClose, onSave, busy }) {
       <div className="form-grid">
         {searchField()}
         <label className="field"><span>主分类</span><select value={form.category} onChange={(e) => set('category', e.target.value)}>{Object.entries(CATEGORIES).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}</select></label>
-        <label className="field"><span>备注</span><input value={form.reason} maxLength={240} placeholder="补充推荐理由或其他说明（选填）" onChange={(e) => set('reason', e.target.value)} /></label>
+        <label className="field"><span>备注（选填）</span><input value={form.reason} maxLength={240} placeholder="补充推荐理由或其他说明" onChange={(e) => set('reason', e.target.value)} /></label>
         <label className="field"><span>纬度</span><input inputMode="decimal" value={form.latitude} placeholder="例如 26.061473" onChange={(e) => set('latitude', e.target.value)} /></label>
         <label className="field"><span>经度</span><input inputMode="decimal" value={form.longitude} placeholder="例如 119.296531" onChange={(e) => set('longitude', e.target.value)} /></label>
         <fieldset className="field field--full tag-picker"><legend>标签</legend>{tags.length ? tags.map((tag) => <label key={tag.id}><input type="checkbox" checked={form.tagIds.includes(tag.id)} onChange={() => toggleTag(tag.id)} />{tag.name}</label>) : <p>还没有自定义标签，可在空间设置中创建。</p>}</fieldset>

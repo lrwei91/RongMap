@@ -17,7 +17,7 @@ const AuthPage = lazy(() => import('./pages/StandalonePages').then((module) => (
 const PublicSharePage = lazy(() => import('./pages/StandalonePages').then((module) => ({ default: module.PublicSharePage })));
 const TripEditorPage = lazy(() => import('./pages/Trips').then((module) => ({ default: module.TripEditorPage })));
 const TripsPage = lazy(() => import('./pages/Trips').then((module) => ({ default: module.TripsPage })));
-const PAGE_FALLBACK = <main className="management-page" role="status">正在打开页面…</main>;
+const PAGE_FALLBACK = <main className="management-page page-fallback" role="status"><p className="eyebrow">RONGMAP</p><h2>正在打开页面…</h2><div className="skeleton-line" /></main>;
 
 const EMPTY_DATA = {
   currentUser: { id: '', name: '', role: 'member' },
@@ -329,7 +329,7 @@ export default function App() {
       <Suspense fallback={PAGE_FALLBACK}>
         {route.page === 'trips' ? <TripsPage trips={data.trips} onOpen={openTrip} onCreate={openTripCreate} onDelete={askDeleteTrip} onNavigate={navigate} /> : null}
         {route.page === 'trip' ? <TripEditorPage tripId={route.tripId} locations={data.locations} isAdmin={data.currentUser.role === 'admin'} onBack={() => navigate('trips')} onChanged={() => load(true)} onDirtyChange={setTripDirty} /> : null}
-        {route.page === 'travel' ? <Suspense fallback={<main className="management-page">正在打开旅行攻略…</main>}><TravelGuidePage trips={data.trips} tripId={route.tripId} onOpen={openGuide} onBack={() => navigate('travel')} onEditTrip={openTrip} onChanged={() => load(true)} onDirtyChange={setTripDirty} isAdmin={data.currentUser.role === 'admin'} /></Suspense> : null}
+        {route.page === 'travel' ? <Suspense fallback={<main className="management-page page-fallback" role="status"><h2>正在打开旅行攻略…</h2><div className="skeleton-line" /></main>}><TravelGuidePage trips={data.trips} tripId={route.tripId} onOpen={openGuide} onBack={() => navigate('travel')} onEditTrip={openTrip} onChanged={() => load(true)} onDirtyChange={setTripDirty} isAdmin={data.currentUser.role === 'admin'} /></Suspense> : null}
         {route.page === 'trash' ? <TrashPage trash={data.trash} onRestore={restore} onPurge={askPurge} isAdmin={data.currentUser.role === 'admin'} /> : null}
         {route.page === 'share-links' ? <ShareLinksPage links={data.shareLinks} onCreate={createShare} onRevoke={revokeShare} isAdmin={data.currentUser.role === 'admin'} /> : null}
         {route.page === 'settings' || route.page === 'activity' ? <MyPage key={route.page} initialSection={route.page === 'activity' ? 'activity' : 'settings'} onNavigate={navigate} data={data} onAddMember={addMember} onCreateTag={createTag} onDeleteTag={deleteTag} /> : null}

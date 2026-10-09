@@ -3,8 +3,8 @@ import React from 'react';
 const NAV_ITEMS = [
   ['map', '地图', '⌖'],
   ['locations', '地点', '▦'],
-  ['trips', '行程', '→'],
-  ['travel', '攻略', '⇢'],
+  ['trips', '行程', '⇢'],
+  ['travel', '攻略', '⚑'],
   ['trash', '回收站', '♲'],
   ['share-links', '共享链接', '↗'],
   ['settings', '我的', '☰']
@@ -18,14 +18,13 @@ function Avatar({ member, small = false }) {
 // 当前为单空间部署：空间名与成员数只读展示，尚不支持切换共享空间。
 export function SpaceSwitcher({ space, members }) {
   return (
-    <button type="button" className="space-switcher" aria-label="切换共享空间">
+    <div className="space-switcher">
       <span className="space-mark">R</span>
       <span className="space-switcher__copy">
         <strong>{space?.name || '亲友共享地图'}</strong>
         <small>{members.length} 位成员</small>
       </span>
-      <span aria-hidden="true">⌄</span>
-    </button>
+    </div>
   );
 }
 
@@ -117,7 +116,7 @@ export function MobileTabBar({ route, onNavigate, onAdd }) {
     ['map', '地图', '⌖'],
     ['locations', '地点', '▦'],
     ['add', '添加', '+'],
-    ['travel', '攻略', '⇢'],
+    ['travel', '攻略', '⚑'],
     ['settings', '我的', '☰']
   ];
   return (

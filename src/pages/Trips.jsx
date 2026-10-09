@@ -41,7 +41,7 @@ function TripItem({ item, index, dayIndex, dayCount, selected, onSelect, onChang
       <div className="trip-item__fields">
         <label>开始<input type="time" value={item.startTime || ''} onChange={(event) => onChange({ startTime: event.target.value })} /></label>
         <label>结束<input type="time" value={item.endTime || ''} onChange={(event) => onChange({ endTime: event.target.value })} /></label>
-        <label className="trip-item__note">备注<input value={item.note || ''} maxLength={240} placeholder="本段安排（选填）" onChange={(event) => onChange({ note: event.target.value })} /></label>
+        <label className="trip-item__note">备注（选填）<input value={item.note || ''} maxLength={240} placeholder="本段安排" onChange={(event) => onChange({ note: event.target.value })} /></label>
       </div>
       {!hasCoordinates(item) ? <div className="inline-notice inline-notice--warning"><span>!</span>未定位地点不会参与路线优化。</div> : null}
       <div className="trip-item__actions">
