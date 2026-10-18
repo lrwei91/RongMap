@@ -23,7 +23,7 @@ export function locateOnAmap(AMap, geolocation = navigator.geolocation) {
         reject(new Error('地图坐标转换失败，请重试'));
       }
     }, (error) => {
-      reject(new Error(error.code === 1 ? '定位权限被拒绝，请在浏览器设置中允许位置访问' :
+      reject(new Error(error.code === 1 ? '定位权限被拒绝，请在浏览器设置里允许访问位置' :
         error.code === 3 ? '定位超时，请到信号较好的位置重试' : '暂时无法获取位置，请检查系统定位服务后重试'));
     }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
   });

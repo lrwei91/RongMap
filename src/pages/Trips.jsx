@@ -16,7 +16,7 @@ export function TripsPage({ trips, onOpen, onCreate, onDelete, onNavigate }) {
   return (
     <main className="management-page trips-page">
       <MobileLocationSwitch active="trips" onNavigate={onNavigate} />
-      <header className="page-header"><div><p className="eyebrow">共享编排</p><h2>行程</h2><p>把空间里的收藏地点组合成可排序、可优化和可分享的逐日路线。</p></div><button type="button" className="button button--primary" onClick={() => onCreate([])}>创建行程</button></header>
+      <header className="page-header"><div><p className="eyebrow">共享编排</p><h2>行程</h2><p>把收藏地点排成逐日路线，可以调整顺序、优化路程，也能分享给亲友。</p></div><button type="button" className="button button--primary" onClick={() => onCreate([])}>创建行程</button></header>
       <div className="page-toolbar"><input type="search" value={keyword} aria-label="搜索行程" placeholder="搜索行程名称或说明" onChange={(event) => setKeyword(event.target.value)} /></div>
       <div className="trip-grid">
         {filtered.length ? filtered.map((trip) => (
@@ -158,7 +158,7 @@ export function TripEditorPage({ tripId, locations, isAdmin, onBack, onChanged, 
       const optimized = await api.optimizeTrip(tripId, { version: current.version, dayIndex: activeDayIndex });
       const report = optimized.optimization?.[0];
       setDraft(optimized); setSavedSnapshot(JSON.stringify(optimized)); setPast([]); setFuture([]);
-      setStatus({ type: 'success', message: report?.improved ? `路线已从 ${report.beforeKm.toFixed(1)} km 优化到 ${report.afterKm.toFixed(1)} km${report.skipped ? `，${report.skipped} 个未定位地点已保留在末尾` : ''}` : '当前顺序已经是稳定的较短路线' });
+      setStatus({ type: 'success', message: report?.improved ? `路线已从 ${report.beforeKm.toFixed(1)} km 优化到 ${report.afterKm.toFixed(1)} km${report.skipped ? `，${report.skipped} 个未定位地点已保留在末尾` : ''}` : '当前顺序已经较短，不需要调整' });
       await onChanged();
     } catch (error) { setStatus({ type: error.status === 409 ? 'conflict' : 'error', message: error.status === 409 ? '行程版本已更新，请重新载入后再优化。' : `优化失败：${error.message}` }); }
   }

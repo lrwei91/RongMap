@@ -187,7 +187,7 @@ export default function App() {
       setNotice({ message: formLocation ? `已更新「${form.name}」` : `已添加「${form.name}」` });
     } catch (error) {
       if (error.status === 409) {
-        setConfirm({ type: 'conflict', title: '地点已被其他成员修改', message: '服务器中已有更新版本。关闭后请查看最新内容，再重新应用你的修改。' });
+        setConfirm({ type: 'conflict', title: '地点已被其他成员修改', message: '服务器上已有更新的版本。关闭后先查看最新内容，再重新提交你的修改。' });
         await load(true);
       } else setNotice({ message: `保存失败：${error.message}`, error: true });
     } finally { setBusy(false); }
@@ -195,7 +195,7 @@ export default function App() {
 
   function askDelete(location) {
     setActiveLocation(null);
-    setConfirm({ type: 'delete', location, title: '移入回收站', message: `「${location.name}」会保留30天，期间可随时恢复。` });
+    setConfirm({ type: 'delete', location, title: '移入回收站', message: `「${location.name}」会保留 30 天，期间可随时恢复。` });
   }
 
   async function deleteLocation(location) {
@@ -216,7 +216,7 @@ export default function App() {
   }
 
   function askPurge(location) {
-    setConfirm({ type: 'purge', location, title: '永久删除地点', message: `永久删除「${location.name}」后将不能恢复。` });
+    setConfirm({ type: 'purge', location, title: '永久删除地点', message: `永久删除「${location.name}」后无法恢复。` });
   }
 
   async function purge(location) {

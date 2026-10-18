@@ -126,7 +126,7 @@ export default function TravelGuidePage({ trips, tripId, onOpen, onBack, onEditT
   const step = draft || (saved && !editing) ? 2 : research ? 1 : 0;
   const matches = trips.filter((trip) => trip.name.toLowerCase().includes(keyword.trim().toLowerCase()));
   return <main className="management-page travel-guide-page">
-    <header className="page-header"><div>{tripId ? <button className="text-button" onClick={onBack}>← 返回旅行攻略</button> : <p className="eyebrow">从旅行想法到逐日安排</p>}<h2>{current?.name || '规划一份旅行攻略'}</h2><p>先选目的地与偏好，再核对候选地点，生成带来源的旅行安排。</p></div>{saved && !editing ? <button className="button button--quiet" disabled={Boolean(busy)} onClick={replan}>重新规划</button> : null}</header>
+    <header className="page-header"><div>{tripId ? <button className="text-button" onClick={onBack}>← 返回旅行攻略</button> : <p className="eyebrow">从旅行想法到逐日安排</p>}<h2>{current?.name || '规划一份旅行攻略'}</h2></div>{saved && !editing ? <button className="button button--quiet" disabled={Boolean(busy)} onClick={replan}>重新规划</button> : null}</header>
     {error ? <div className="inline-notice inline-notice--error" role="alert">{error}{conflict ? <button className="text-button" onClick={load}>载入最新版本</button> : tripId && !saved && !busy ? <button className="text-button" onClick={load}>重新加载</button> : null}</div> : null}
     {message ? <p className="inline-notice" role="status">{message}</p> : null}
     <ol className="guide-steps" aria-label="攻略规划进度">{['旅行需求', '候选与来源', '逐日攻略'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={step >= index ? 'is-active' : ''}><span>{index + 1}</span>{label}</li>)}</ol>

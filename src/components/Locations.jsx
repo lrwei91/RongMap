@@ -201,7 +201,7 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
           <div className="empty-state">
             <span aria-hidden="true">⌖</span>
             <h3>没有匹配的地点</h3>
-            <p>{allLocations.length ? '调整筛选条件，或清空后查看全部地点。' : '添加第一个地点，开始共享地图。'}</p>
+            <p>{allLocations.length ? '换个关键词，或调整筛选条件。' : '添加第一个地点，开始共享地图。'}</p>
             {allLocations.length
               ? <button type="button" className="button button--quiet" onClick={() => onFilters({ ...EMPTY_FILTERS, sort: filters.sort })}>清空筛选</button>
               : <button type="button" className="button button--primary" onClick={onAdd}>添加地点</button>}

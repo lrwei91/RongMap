@@ -221,7 +221,7 @@ export default function MapCanvas({ locations, activeId, focusRequest, onSelect,
       }) : null;
       map.setZoomAndCenter?.(16, position);
       setLocationMessage(Number.isFinite(accuracy) && accuracy > 0 ?
-        `已定位，精度约 ${Math.ceil(accuracy)} 米${accuracy > 100 ? '；当前信号较弱，位置可能有偏差' : ''}` : '已定位');
+        `已定位，精度约 ${Math.ceil(accuracy)} 米${accuracy > 100 ? '；信号较弱，位置可能有偏差' : ''}` : '已定位');
     } catch (error) {
       if (requestId === locationRequestRef.current && map === mapRef.current) {
         setLocationMessage(`${error.message}${userMarkerRef.current ? '；地图保留上次位置' : ''}`);

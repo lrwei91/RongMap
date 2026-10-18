@@ -30,7 +30,7 @@ export function ActivityPage({ activity, members }) {
   const filtered = activity.filter((item) => (member === 'all' || item.actorId === member) && (action === 'all' || item.action === action));
   return (
     <main className="management-page">
-      <PageHeader eyebrow="协作记录" title="活动记录" description="查看谁在什么时候对共享空间做了什么。" />
+      <PageHeader eyebrow="协作记录" title="活动记录" description="共享空间里的每一次改动，都按时间记在这里。" />
       <div className="page-toolbar">
         <select value={member} onChange={(e) => setMember(e.target.value)} aria-label="按成员筛选"><option value="all">全部成员</option>{members.map((item) => <option value={item.id} key={item.id}>{item.name || item.email}</option>)}</select>
         <select value={action} onChange={(e) => setAction(e.target.value)} aria-label="按动作筛选"><option value="all">全部动作</option><option value="location_created">新增地点</option><option value="location_updated">修改地点</option><option value="location_deleted">删除地点</option><option value="location_restored">恢复地点</option><option value="trip_created">创建行程</option><option value="trip_updated">修改行程</option><option value="trip_optimized">优化行程</option><option value="trip_share_created">分享行程</option><option value="import_committed">批量导入</option></select>
@@ -50,12 +50,12 @@ export function ActivityPage({ activity, members }) {
 export function TrashPage({ trash, onRestore, onPurge, isAdmin }) {
   return (
     <main className="management-page">
-      <PageHeader eyebrow="30 天保留" title="回收站" description="成员删除的地点会在这里保留30天，到期后自动清理；管理员也可随时永久清理。" />
+      <PageHeader eyebrow="30 天保留" title="回收站" description="成员删除的地点会在这里暂存，到期自动清理；管理员可以随时永久删除。" />
       <div className="data-list">
         {trash.length ? trash.map((item) => {
           const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(item.deletedAt).getTime()) / 86400000));
           return <article className="data-row" key={item.id}><span className={`category-square category-square--${item.category}`}>{CATEGORIES[item.category]?.short || '地'}</span><div><strong>{item.name}</strong><p>{item.address}</p><small>{item.deletedByName || '空间成员'} 删除 · {daysLeft} 天后清理</small></div><div className="row-actions"><button type="button" className="button button--quiet" onClick={() => onRestore(item)}>恢复</button>{isAdmin ? <button type="button" className="button button--danger-quiet" onClick={() => onPurge(item)}>永久删除</button> : null}</div></article>;
-        }) : <div className="empty-state"><span>♲</span><h3>回收站是空的</h3><p>误删的地点可在30天内恢复。</p></div>}
+        }) : <div className="empty-state"><span>♲</span><h3>回收站是空的</h3><p>误删的地点可在 30 天内恢复。</p></div>}
       </div>
     </main>
   );
@@ -66,12 +66,12 @@ export function ShareLinksPage({ links, onCreate, onRevoke, isAdmin }) {
   async function create() { await onCreate({ label }); setLabel('亲友共享地图'); }
   return (
     <main className="management-page">
-      <PageHeader eyebrow="无需登录 · 只读" title="共享链接" description="创建可随时撤销的实时只读地图，不开放成员和编辑能力。" />
+      <PageHeader eyebrow="无需登录 · 只读" title="共享链接" description="创建可随时撤销的实时只读地图；打开链接的人只能查看，不能编辑。" />
       {isAdmin ? <section className="create-strip"><label><span>链接名称</span><input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={80} /></label><button type="button" className="button button--primary" onClick={create}>创建只读链接</button></section> : <div className="inline-notice inline-notice--warning"><span>!</span>只有管理员可以创建或撤销共享链接。</div>}
       <div className="data-list">
         {links.length ? links.map((link) => {
           const url = link.token ? `${window.location.origin}/share/${link.token}` : '';
-          return <article className="data-row" key={link.id}><span className="share-icon">↗</span><div><strong>{link.label}</strong><p className="monospace">{link.revokedAt ? '链接已失效' : url || '链接仍有效；为保护访问令牌，地址只在创建时自动复制。'}</p><small>{link.scope === 'trip' ? '单个行程' : '完整空间'} · {link.revokedAt ? '已撤销' : `创建于 ${new Date(link.createdAt).toLocaleDateString('zh-CN')}`}</small></div><div className="row-actions">{url ? <button type="button" className="button button--quiet" disabled={Boolean(link.revokedAt)} onClick={() => navigator.clipboard.writeText(url)}>复制</button> : null}{isAdmin ? <button type="button" className="button button--danger-quiet" disabled={Boolean(link.revokedAt)} onClick={() => onRevoke(link)}>撤销</button> : null}</div></article>;
+          return <article className="data-row" key={link.id}><span className="share-icon">↗</span><div><strong>{link.label}</strong><p className="monospace">{link.revokedAt ? '链接已失效' : url || '链接仍有效。为保护访问令牌，地址只在创建时复制一次。'}</p><small>{link.scope === 'trip' ? '单个行程' : '完整空间'} · {link.revokedAt ? '已撤销' : `创建于 ${new Date(link.createdAt).toLocaleDateString('zh-CN')}`}</small></div><div className="row-actions">{url ? <button type="button" className="button button--quiet" disabled={Boolean(link.revokedAt)} onClick={() => navigator.clipboard.writeText(url)}>复制</button> : null}{isAdmin ? <button type="button" className="button button--danger-quiet" disabled={Boolean(link.revokedAt)} onClick={() => onRevoke(link)}>撤销</button> : null}</div></article>;
         }) : <div className="empty-state"><span>↗</span><h3>还没有共享链接</h3><p>创建后，收到链接的人可以查看实时地图和地点详情。</p></div>}
       </div>
     </main>

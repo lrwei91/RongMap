@@ -43,7 +43,6 @@ export default function Discovery({ savedLocations, onCollect }) {
     <aside className="discovery-panel" aria-label="发现小馆">
       <div className="discovery-controls">
         <div className="discovery-heading"><h2>发现小馆</h2><span className="tag">福州</span></div>
-        <p>拖动地图，搜索附近餐馆；喜欢的再收藏。</p>
         <button className="button button--primary discovery-search" disabled={!bounds || tooWide || loading} onClick={search}>{loading ? '正在搜索…' : '搜索当前区域'}</button>
         {tooWide ? <small>请放大地图后搜索。</small> : !bounds ? <small>等待地图加载…</small> : null}
         <label className="field">筛选搜索结果<input type="search" placeholder="店名、地址或菜系" value={filters.keyword} onChange={(event) => change('keyword', event.target.value)} /></label>
@@ -57,8 +56,8 @@ export default function Discovery({ savedLocations, onCollect }) {
         {error ? <p className="inline-notice inline-notice--error" role="alert">{error}{result ? '。下方保留上次结果。' : ''}</p> : null}
         {result?.partial ? <p className="inline-notice inline-notice--warning" role="status">部分区域搜索失败，结果不完整，请重试。</p> : null}
         {moved ? <p className="discovery-hint" role="status">地图范围已改变，点击搜索刷新结果。</p> : null}
-        {result ? <p className="discovery-summary">{visible.length} / {result.restaurants.length} 家候选 · {new Date(result.fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} 查询</p> : null}
-        {!result ? <div className="empty-state"><span aria-hidden="true">⌖</span><h3>找一家想去的小馆</h3><p>放大到想逛的街区，再搜索当前区域。</p></div> : !visible.length ? <div className="empty-state"><h3>{result.restaurants.length ? '没有符合筛选的餐馆' : '本次搜索没有返回餐馆'}</h3><p>{result.restaurants.length ? '调整预算、类型或搜索词试试。' : '移动地图或放大到附近街区再试。'}</p></div> : null}
+        {result ? <p className="discovery-summary">{visible.length} / {result.restaurants.length} 家候选 · 查询于 {new Date(result.fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</p> : null}
+        {!result ? <div className="empty-state"><span aria-hidden="true">⌖</span><h3>找一家想去的小馆</h3><p>放大到想逛的街区，再点「搜索当前区域」。</p></div> : !visible.length ? <div className="empty-state"><h3>{result.restaurants.length ? '没有符合筛选的餐馆' : '本次搜索没有返回餐馆'}</h3><p>{result.restaurants.length ? '调整预算、类型或搜索词试试。' : '移动地图或放大到附近街区再试。'}</p></div> : null}
         {visible.map((item) => <article ref={(element) => { if (element) cards.current.set(item.id, element); else cards.current.delete(item.id); }} className={`discovery-card ${selected?.id === item.id ? 'is-active' : ''}`} key={item.id}>
           <button className="discovery-card__main" onClick={() => select(item)} aria-label={`在地图查看${item.name}`}><strong>{item.name}</strong><span>{item.address || '地址暂无'}</span><small>{item.poiType.split(';').at(-1)} · {item.rating === null ? '评分暂无' : `高德 ${item.rating.toFixed(1)}`} · {item.averageCost === null ? '人均未知' : `人均 ¥${item.averageCost}`}</small></button>
           <button className="button" disabled={Boolean(saving) || savedIds.has(item.sourceId)} onClick={() => collect(item)} aria-label={`收藏${item.name}`}>{savedIds.has(item.sourceId) ? '已收藏' : saving === item.sourceId ? '收藏中…' : '收藏'}</button>
