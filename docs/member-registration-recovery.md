@@ -2,11 +2,11 @@
 
 ## 根因与证据
 
-用户名注册原先按顺序做三件事：创建 Auth 账号、写入 `profiles`、写入 `space_members`。数据库这一步失败后，账号已经留下；下一次请求只按 Auth 邮箱判重，于是成员列表里没有这个人，界面却提示已经注册。
+用户名注册按顺序做三件事：创建 Auth 账号、写入 `profiles`、写入 `space_members`。数据库这一步失败后，账号已经留下；下一次请求只按 Auth 邮箱判重，于是成员列表里没有这个人，界面却提示已经注册。
 
-本次只读诊断确认了一个这样的账号：Auth 账号存在，两张业务表都没有对应行。生产运行日志记录了 `profiles` 写入被 RLS 拒绝，错误代码 `42501`。数据库的服务端角色对这张表有读取、插入和更新权限，问题出在客户端会话，不是缺表权限。
+只读诊断确认了一个这样的账号：Auth 账号存在，两张业务表都没有对应行。生产运行日志记录了 `profiles` 写入被 RLS 拒绝，错误代码 `42501`。数据库的服务端角色对这张表有读取、插入和更新权限，问题出在客户端会话，不是缺表权限。
 
-`/api/v2/session` 原先调用共享管理员客户端的 `signInWithPassword`。即使关掉会话持久化，SDK 仍会在客户端实例里维护用户会话，后续数据库请求带着用户的 Authorization，没法继续以管理员身份跨成员写资料。这与 [Supabase 关于管理员客户端 RLS 错误的说明](https://supabase.com/docs/guides/troubleshooting/why-is-my-service-role-key-client-getting-rls-errors-or-not-returning-data-7_1K9z)一致。
+`/api/v2/session` 调用共享管理员客户端的 `signInWithPassword`。即使关掉会话持久化，SDK 仍会在客户端实例里维护用户会话，后续数据库请求带着用户的 Authorization，没法继续以管理员身份跨成员写资料。这与 [Supabase 关于管理员客户端 RLS 错误的说明](https://supabase.com/docs/guides/troubleshooting/why-is-my-service-role-key-client-getting-rls-errors-or-not-returning-data-7_1K9z)一致。
 
 ## 修复范围
 

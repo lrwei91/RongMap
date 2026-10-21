@@ -20,7 +20,7 @@
 - `/icons/app-maskable-512.png`：单独的可遮罩变体，标识缩进中央安全区。
 - `/manifest.webmanifest`：安装名称 `RongMap`，从 `/app/map` 启动，显示模式为 `standalone`。
 
-所有声明都放在静态首屏 `index.html` 里，资源使用根相对路径，由 Vite / Vercel 的静态文件链路提供，业务 API 的公开范围没有扩大。图标 SVG 的真源是 `public/icons/app-source.svg`，运行 `node scripts/generate-icons.js` 可以重新生成 PNG，复用现有的 Playwright Chromium，不增加依赖。
+所有声明都放在静态首屏 `index.html` 里，资源使用根相对路径，由 Vite / Vercel 的静态文件服务提供，业务 API 的公开范围没有扩大。图标 SVG 的真源是 `public/icons/app-source.svg`，运行 `node scripts/generate-icons.js` 可以重新生成 PNG，复用现有的 Playwright Chromium，不增加依赖。
 
 平台机制参考：[Apple 的 Web 应用配置文档](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)、[MDN 的 Manifest 图标说明](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/icons)、[MDN 的 touch-action 说明](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action)。
 

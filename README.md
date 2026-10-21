@@ -67,7 +67,7 @@ npm run dev
 | `/api/v2/locations` | 创建、版本化更新、软删除 |
 | `/api/v2/trips` | 行程摘要、详情、版本化保存、路线优化、删除 |
 | `POST /api/v2/travel-guide` | `collect` 搜集候选；`source` 采集单一来源／详情；`generate` 返回逐日攻略预览 |
-| `POST /api/v2/roadbook-ai` | 旧版逐日草案兼容接口，前端不再提供原路书向导 |
+| `POST /api/v2/roadbook-ai` | 逐日草案兼容接口，前端不提供路书向导 |
 | `POST /api/v2/roadbook` | 核实已保存行程当天所选交通方式的路段与天气（不缓存） |
 | `/api/v2/tags` / `members` | 标签管理、成员用户名注册 |
 | `/api/v2/bulk` / `import-preview` / `import-commit` | 批量操作与导入 |
@@ -102,7 +102,7 @@ npm run test:e2e    # Playwright 端到端
 
 ## 已知边界
 
-- 知道用户名就能进入共享空间，没有第二道凭据。需要更强校验时，在 `lib/member-auth.js` 的 `signInMember` 接回密码或 TOTP，前端其余链路无需改动。
+- 知道用户名就能进入共享空间，没有第二道凭据。需要更强校验时，在 `lib/member-auth.js` 的 `signInMember` 接回密码或 TOTP，前端其余部分无需改动。
 - AI 给出的时间、票价和预约都是草案，路线与天气由高德单独核实。
 - 未接入自动搜索新地点、自动核查票价、专属行程地图生成；导航复用高德 URI 逐段导航，发布复用只读分享。
 - 空间名与空间切换当前不支持编辑（单空间部署）。
