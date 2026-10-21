@@ -1,0 +1,62 @@
+<view class="page trash-page">
+  <view class="page-head">
+    <view class="trash-page__title">
+      <text class="eyebrow">TRASH</text>
+      <text class="h2">回收站</text>
+    </view>
+    <view wx:if="{{list.length}}" class="btn btn--danger-quiet page-head__action" hover-class="btn--pressed" hover-stay-time="60" bindtap="onPurgeAll">清空</view>
+  </view>
+
+  <view class="notice">
+    <text class="notice__mark">i</text>
+    <text>删除的地点保留 {{retentionDays}} 天，到期自动清理；也可以提前恢复或彻底删除。</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="trash-page__loading">
+    <view class="skeleton">
+      <view class="skeleton__card"></view>
+      <view class="skeleton__card"></view>
+      <view class="skeleton__card skeleton__card--short"></view>
+    </view>
+  </view>
+
+  <view wx:elif="{{error}}" class="notice notice--error">
+    <text class="notice__mark">!</text>
+    <text>{{error}}</text>
+    <text class="notice__retry" bindtap="onRetry">重试</text>
+  </view>
+
+  <view wx:elif="{{!list.length}}" class="empty">
+    <text class="empty__mark">♲</text>
+    <text class="empty__title">回收站是空的</text>
+    <text class="empty__copy">被删掉的地点会先出现在这里。</text>
+  </view>
+
+  <view wx:else class="list">
+    <view
+      wx:for="{{list}}"
+      wx:key="id"
+      class="row enter-rise"
+      style="animation-delay: {{index < 8 ? index * 30 : 240}}ms"
+    >
+      <view class="row__main">
+        <text class="row__title">{{item.name}}</text>
+        <text class="row__copy">{{item.address}}</text>
+        <text class="row__copy">由 {{item.deletedByLabel}} 于 {{item.deletedAtText}} 删除 · {{item.daysLeftText}}</text>
+      </view>
+      <view class="row__actions">
+        <view class="btn btn--quiet trash-page__action" hover-class="btn--pressed" hover-stay-time="60" data-id="{{item.id}}" bindtap="onRestore">恢复</view>
+        <view class="btn btn--danger-quiet trash-page__action" hover-class="btn--pressed" hover-stay-time="60" data-id="{{item.id}}" bindtap="onPurge">删除</view>
+      </view>
+    </view>
+  </view>
+  <confirm-sheet
+    visible="{{confirmVisible}}"
+    title="{{confirmTitle}}"
+    message="{{confirmMessage}}"
+    confirm-text="{{confirmText}}"
+    danger="{{confirmDanger}}"
+    bind:cancel="onConfirmCancel"
+    bind:confirm="onConfirmAction"
+  />
+</view>

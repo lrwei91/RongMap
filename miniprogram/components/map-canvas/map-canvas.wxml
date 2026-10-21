@@ -1,0 +1,19 @@
+<view class="map-card">
+  <map
+    id="rongmap-map"
+    class="map-canvas"
+    latitude="{{latitude}}"
+    longitude="{{longitude}}"
+    scale="{{scale}}"
+    markers="{{markers}}"
+    include-points="{{includePoints}}"
+    show-location="{{showLocation}}"
+    enable-rotate="{{false}}"
+    enable-overlooking="{{false}}"
+    enable-satellite="{{false}}"
+    enable-traffic="{{false}}"
+    bindmarkertap="onMarkerTap"
+    bindtap="onMapTap"
+    bindregionchange="onRegionChange"
+  ></map>
+</view>

@@ -1,0 +1,285 @@
+/*
+ * 弹层关键布局在组件内自持一份（数值与 app.wxss 的 .sheet 系列完全一致），
+ * 不依赖「全局样式穿透到自定义组件」这一跨边界行为。
+ */
+
+/* 容器：固定 86vh 是整条链路能算高度的起点 */
+.detail-sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 201;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 86vh;
+  max-height: 86vh;
+  border-radius: 14px 14px 0 0;
+  background: var(--surface);
+  overflow: hidden;
+  animation: rongmap-detail-in .32s cubic-bezier(.19, 1, .22, 1) both;
+}
+@keyframes rongmap-detail-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+/* 关闭：留在树上滑下去，动画结束才被 wx:if 摘除 */
+.detail-sheet.is-closing { animation: rongmap-detail-out .24s ease-in both; }
+@keyframes rongmap-detail-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+.detail-sheet__header {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--gutter) 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* 标题区必须是可收缩的 flex 项，否则地点名一长就把右上角关闭按钮挤出屏幕 */
+.detail-sheet__title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.detail-sheet__title-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.detail-sheet__title-copy .h3 { word-break: break-all; }
+.detail-sheet__title-copy .small { word-break: break-all; }
+
+/* 滚动区：父级高度确定 + flex:1 + min-height:0 才滚得起来 */
+.detail-sheet__body {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  padding: 14px var(--gutter) 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.detail-sheet__block { margin-bottom: 16px; }
+.detail-sheet__text { display: block; font-size: 15px; line-height: 1.6; word-break: break-all; }
+.detail-sheet__tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.detail-sheet__meta { margin-top: 4px; }
+
+/* 底部三个操作挤在一行：取消 96px 最小宽，否则 320px 窄屏会被迫折行 */
+.detail-sheet__footer {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px var(--gutter) 10px;
+  border-top: 0;
+  background: var(--surface);
+}
+.detail-sheet__footer .btn { flex: 1 1 0; min-width: 0; padding: 6px 8px; }
+
+/* button 走 .btn 视觉：清掉原生 ::after 边框与 UA 行高，参与 footer 弹性 */
+.detail-sheet__share { flex: 1 1 0; min-width: 0; margin: 0; }
+.detail-sheet__share::after { border: none; }
+
+/* 危险操作单独一行，底部安全区只在这里留一次 */
+.detail-sheet__danger {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  padding: 10px var(--gutter) calc(12px + var(--safe-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+/* ---- 点评 ---- */
+
+.detail-sheet__comments { margin-top: 18px; margin-bottom: 0; }
+.comments__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.comments__title { margin-bottom: 0; }
+
+.comments__state {
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.comments { display: flex; flex-direction: column; gap: 8px; }
+.comment {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+/* 自己的点评给一层浅黄底，一眼能认出哪些是「我写的」 */
+.comment.is-mine { border-color: var(--line-strong); background: var(--yellow-soft); }
+
+.comment__head { display: flex; align-items: center; gap: 8px; }
+/* 首字方章：墨底黄字的小方戳，和页面上其它印章元素同一套语言 */
+.comment__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--yellow);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+.comment__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comment__time { flex: 0 0 auto; }
+.comment__content {
+  display: block;
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+/* 点评配图：72px 方图一排，最多 3 张 */
+.comment__images { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.comment__image {
+  box-sizing: border-box;
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+}
+.comment__image--missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--subtle);
+  font-size: 10px;
+}
+
+.comment__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+/* 点赞：默认灰心，自己点过 = 黄底墨心的小印章 */
+.comment__like {
+  min-width: 46px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.comment__like.is-liked {
+  border-color: var(--ink);
+  background: var(--yellow);
+  color: var(--ink);
+  /* 点亮的瞬间弹一下（class 切换时播放一次） */
+  animation: rongmap-like-pop .3s cubic-bezier(.3, 1.6, .5, 1);
+}
+@keyframes rongmap-like-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+.comment__delete {
+  padding: 2px 0;
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 输入区：textarea 是原生组件，用外层容器吃 flex，避免它自己参与弹性布局 */
+.comments__composer { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.comments__input-wrap { min-width: 0; }
+.comments__input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  max-height: 96px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.comments__placeholder { color: var(--subtle); }
+
+/* 待上传缩略图：小方图 + 右上角删除角标 */
+.comments__drafts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.comments__draft { position: relative; width: 64px; height: 64px; }
+.comments__draft-image {
+  box-sizing: border-box;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+}
+.comments__draft-remove {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.comments__composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.comments__pick { flex: 0 0 auto; }
+.comments__send { flex: 0 0 auto; }
+.comments__send.is-busy { opacity: .55; }

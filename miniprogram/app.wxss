@@ -1,0 +1,474 @@
+/*
+ * RongMap 小程序全局样式。
+ * 设计 token 由原 Web 项目 src/styles.css 的 :root 迁移而来；小程序没有 :root，改用 page 承载。
+ *
+ * 布局规约（改样式前先读这段）：
+ * 1. page 高度固定为 100%，所有百分比高度才有参照；webview 高度已排除 tabBar，不需要再额外让位。
+ * 2. 所有盒子统一 border-box；凡是带 padding 又写 100% 宽高，不加就一定溢出。
+ * 3. 内容超出一屏的页面（登录/地点/我的/回收站/活动）走文档流滚动：最外层用 .page，
+ *    不套 scroll-view，天然不会溢出。
+ * 4. 需要「上面固定、下面单独滚动」的页面（只有地图页）自己搭 100% 高的 flex 列：
+ *    中间每一层都要写 min-height: 0，scroll-view 才拿得到确定高度；
+ *    只写 flex: 1 而父级高度是 auto / max-height，scroll-view 就会按内容撑开并顶穿页面。
+ * 5. 底部一律留 env(safe-area-inset-bottom)，否则 iPhone 全面屏底部按钮会被小横条压住。
+ * 6. flex 行里的文字容器（尤其是 <text>）默认 min-width: auto，长内容不会收缩而是撑破容器，
+ *    必须显式 min-width: 0。
+ * 7. 小程序 WXSS 选择器支持有限，状态一律走 .is-* 类名，不用属性选择器与 :has。
+ */
+page {
+  --canvas: #fff;
+  /* 网格底图：与 Web 版 body 同源，1px 线 + 32px 方格 */
+  --grid: rgba(26, 26, 26, .035);
+  --surface: #fff;
+  --surface-subtle: #f7f7f3;
+  --ink: #1a1a1a;
+  --muted: #656565;
+  --subtle: #6b6b6b;
+  --line: #e3e3df;
+  --line-strong: #82827c;
+  --yellow: #ffe28a;
+  --yellow-soft: #fff6d6;
+  --success: #28704b;
+  --success-soft: #eef7f2;
+  --warning: #8a6410;
+  --warning-soft: #fff7dc;
+  --error: #a33d36;
+  --error-soft: #fff0ef;
+  --info: #315efb;
+  --overlay: rgba(26, 26, 26, .48);
+  --radius-panel: 8px;
+  --radius-card: 6px;
+  --radius-control: 4px;
+  --gutter: 16px;
+  --safe-bottom: env(safe-area-inset-bottom);
+
+  height: 100%;
+  background-color: var(--canvas);
+  /* 沿用原项目底图：横竖两条 1px 渐变线平铺出方格纸背景（WXSS 支持 linear-gradient + background-size） */
+  background-image: linear-gradient(to right, var(--grid) 1px, transparent 1px), linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+  color: var(--ink);
+  font-family: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* 文档流滚动页：内容多就整页滚，不用 scroll-view，天然不会溢出 */
+.page {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 16px var(--gutter) calc(24px + var(--safe-bottom));
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-family: Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* text 默认是 inline，标题类必须显式成块，否则会和相邻 text 挤在同一行。 */
+.h1 { display: block; margin: 0; font-size: 26px; line-height: 1.1; font-weight: 700; letter-spacing: -.035em; }
+.h2 { display: block; margin: 0; font-size: 22px; line-height: 1.15; font-weight: 700; letter-spacing: -.03em; }
+.h3 { display: block; margin: 0; font-size: 16px; font-weight: 700; }
+.muted { color: var(--muted); }
+.subtle { color: var(--subtle); }
+.mono { font-family: Menlo, Consolas, monospace; }
+.small { font-size: 12px; }
+.strong { font-weight: 700; }
+
+/* 按钮 */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  background: var(--surface);
+  color: var(--ink);
+  transition: transform .1s ease, opacity .1s ease, background-color .14s ease, border-color .14s ease;
+}
+/* 按压反馈：整体下沉 1px（hover-class 挂在这个类上） */
+.btn--pressed { transform: translate(1px, 1px); opacity: .82; }
+.btn--primary { color: #fff; background: var(--ink); }
+.btn--quiet { border-color: var(--line-strong); background: var(--surface); }
+.btn--danger { color: #fff; background: var(--error); }
+.btn--danger-quiet { color: var(--error); border-color: rgba(163, 61, 54, .42); background: var(--surface); }
+.btn--block { width: 100%; }
+.btn--text { min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--muted); text-decoration: underline; }
+.btn--sm { min-height: 34px; padding: 4px 10px; font-size: 13px; }
+.btn.is-disabled { opacity: .48; }
+.danger-text { color: var(--error); }
+
+/*
+ * ---- 印章式按钮家族（定位 / ＋添加 / 发现小馆 等页面级动作）----
+ * 统一形状：40px 高 + 墨框 + 2px 硬投影；按下 = 盖印（投影收起、位移 2px）。
+ * 与 .btn 的分工：btn 是表单与列表里的规则按钮，stamp 是页面骨架上的个性化动作；
+ * 家族内用底色区分身份：黄 = 发现（探索），墨 = 添加（主行动），纸 = 定位（工具）。
+ */
+.stamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: box-shadow .12s ease, transform .12s ease, background-color .12s ease, color .12s ease;
+}
+.stamp--yellow { background: var(--yellow); color: var(--ink); }
+.stamp--ink { background: var(--ink); color: var(--yellow); }
+.stamp--paper { background: var(--surface); color: var(--ink); }
+.stamp-mark { font-size: 13px; line-height: 1; }
+/* 按下盖印（hover-class）：与选中态同一视觉语言 */
+.stamp--pressed {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+/* 表单 */
+.field { margin-bottom: 14px; }
+.field__label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.field__input, .field__textarea, .field__picker {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+}
+.field__textarea { min-height: 90px; }
+.field__hint { display: block; margin-top: 6px; color: var(--subtle); font-size: 12px; }
+
+/* 卡片与分区 */
+.card {
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: 14px;
+}
+.section { margin-top: 20px; }
+.section__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  word-break: break-all;
+}
+.tag--strong { border-color: var(--ink); background: var(--yellow-soft); }
+
+/* 分类方块 */
+.category-square {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  font-weight: 800;
+}
+.category-square--food { background: var(--yellow-soft); }
+.category-square--spot { background: var(--success-soft); }
+.category-square--cafe_bar { background: #eef1fb; }
+
+/* 提示条 */
+.notice {
+  display: flex;
+  box-sizing: border-box;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+  font-size: 13px;
+  line-height: 1.5;
+  animation: rongmap-fade-in .22s ease both;
+}
+.notice--warn { border-color: #d8bf76; background: var(--warning-soft); color: var(--warning); }
+.notice--error { border-color: #d9a49f; background: var(--error-soft); color: var(--error); }
+.notice--ok { border-color: #9dc3ad; background: var(--success-soft); color: var(--success); }
+.notice__mark { flex: 0 0 auto; font-weight: 800; }
+/* 错误提示里的重试入口：文字链靠右，重试 = 重新拉一次数据 */
+.notice__retry {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: auto;
+  padding: 0 2px;
+  color: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 空态 */
+.empty { padding: 40px 16px; text-align: center; animation: rongmap-rise-in .28s ease both; }
+/* 空态标记对齐 Web 端 .empty-state > span：44px 方形色块 + 墨色描边，
+   比一个裸字符更明确地表达「这里是有意留白」，四个空态也因此长得一致。 */
+.empty__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  border: 1px solid var(--ink);
+  background: var(--yellow);
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  overflow: hidden;
+  animation: rongmap-stamp-in .42s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+.empty__title { display: block; margin: 0 0 6px; font-size: 16px; font-weight: 700; }
+.empty__copy { display: block; margin: 0 auto; max-width: 280px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+/* 列表行 */
+.list {
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+.row {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.row--last { border-bottom: 0; }
+.row__main { flex: 1; min-width: 0; }
+.row__title { display: block; font-weight: 700; word-break: break-all; }
+.row__copy { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; word-break: break-all; }
+.row__actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+
+/* 头像 */
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--yellow-soft);
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+/* 页头：标题 + 右侧动作，动作不压缩标题 */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.page-head__action { flex: 0 0 auto; min-width: 84px; }
+
+/* 底部弹层（替代 Web 端 modal / drawer） */
+.sheet-mask {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 200;
+  background: var(--overlay);
+  animation: rongmap-mask-in .22s ease both;
+}
+/* 关闭态：弹层先留在树上滑走，动画结束再从 wx:if 移除（closing 由组件挂） */
+.sheet-mask.is-closing { animation: rongmap-mask-out .22s ease both; }
+@keyframes rongmap-mask-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 201;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+  border-radius: 14px 14px 0 0;
+  background: var(--surface);
+  overflow: hidden;
+}
+/* 内部有 scroll-view 的弹层必须给确定高度，否则 flex:1 拿不到高度、内容撑破弹层 */
+.sheet--tall { height: 86vh; }
+
+.sheet__header {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--gutter) 10px;
+  border-bottom: 1px solid var(--line);
+}
+.sheet__body {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  padding: 14px var(--gutter) 20px;
+  -webkit-overflow-scrolling: touch;
+}
+.sheet__footer {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px var(--gutter) calc(12px + var(--safe-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.sheet__footer .btn { flex: 1 1 0; min-width: 96px; }
+.sheet__footer .btn--text { flex: 0 0 auto; min-width: 0; }
+.sheet__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* 分段切换（印章家族同款硬投影，压在筛选行里与右侧按钮呼应） */
+.segmented {
+  display: flex;
+  box-sizing: border-box;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.segmented__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  transition: background-color .16s ease, color .16s ease;
+}
+.segmented__item.is-active { background: var(--yellow); color: var(--ink); }
+
+/* 加载态 */
+.loading { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+
+/*
+ * ---- 动效基建 ----
+ * 只动 transform / opacity，避免布局属性参与动画；时长控制在 300ms 内。
+ * .enter-rise / .enter-fade 可直接挂列表项，配合 style="animation-delay: …ms" 做交错入场；
+ * 交错只在新节点创建时播放（wx:key 相同的节点不会重播），刷新列表不会反复闪。
+ */
+.enter-rise { animation: rongmap-rise-in .26s ease-out both; }
+.enter-fade { animation: rongmap-fade-in .3s ease-out both; }
+
+/*
+ * 骨架屏：3 张卡高的占位块 + 浅黄扫光。
+ * 替代纯文字「正在加载…」，冷启动首屏不再是一行灰字。
+ */
+.skeleton { display: flex; box-sizing: border-box; width: 100%; flex-direction: column; gap: 10px; }
+.skeleton__card {
+  position: relative;
+  box-sizing: border-box;
+  height: 68px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.skeleton__card::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, transparent, var(--yellow-soft), transparent);
+  animation: rongmap-skeleton-sweep 1.2s ease-in-out infinite;
+  content: '';
+}
+.skeleton__card--short { height: 52px; }
+
+@keyframes rongmap-mask-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes rongmap-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes rongmap-rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* 「盖印落纸」：缩小回弹一下，用在空态方章与登录品牌章上 */
+@keyframes rongmap-stamp-in {
+  0% { opacity: 0; transform: scale(1.8); }
+  60% { opacity: 1; transform: scale(.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes rongmap-skeleton-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}

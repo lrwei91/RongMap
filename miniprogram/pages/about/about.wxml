@@ -1,0 +1,30 @@
+<view class="page about-page">
+  <view class="page-head">
+    <view class="about-page__title">
+      <text class="eyebrow">ABOUT</text>
+      <text class="h2">关于</text>
+    </view>
+  </view>
+
+  <view class="list">
+    <view class="row">
+      <view class="row__main">
+        <text class="row__title">RongMap 亲友共享地图</text>
+        <text class="row__copy">和家人朋友一起收藏想去的地方，去过了就写点评。</text>
+      </view>
+    </view>
+    <view class="row">
+      <view class="row__main">
+        <text class="row__title">版本</text>
+        <text class="row__copy">{{version ? version + ' · ' : ''}}{{envLabel}}</text>
+      </view>
+    </view>
+    <view class="row row--last" bindtap="onOpenPrivacy">
+      <view class="row__main">
+        <text class="row__title">隐私说明</text>
+        <text class="row__copy">位置权限与数据存储的方式</text>
+      </view>
+      <text class="muted small">›</text>
+    </view>
+  </view>
+</view>

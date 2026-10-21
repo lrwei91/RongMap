@@ -1,0 +1,10 @@
+.locations-page__title { flex: 1; min-width: 0; }
+
+/* 原搜索框 / 筛选栏 / 工具按钮的位置，现在只留一行数量，避免页头与列表之间出现空档 */
+.locations-page__meta { margin: 0 0 10px; }
+
+/* 骨架屏占住列表位置，加载完成时列表接在同一位置，页面不跳动 */
+.locations-page__loading { padding: 2px 0 8px; }
+
+.locations-page__list { padding-bottom: 8px; }
+.locations-page__list .location-card:last-child { border-bottom: 0; }

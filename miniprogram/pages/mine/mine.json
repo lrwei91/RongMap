@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "confirm-sheet": "../../components/confirm-sheet/confirm-sheet"
+  }
+}

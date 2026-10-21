@@ -1,0 +1,67 @@
+/*
+ * 确认弹层是内容自适应高度（不是 86vh），所以没有 scroll-view，只有超长消息时才在
+ * 消息区内部滚动。关键布局在组件内自持一份，不依赖全局样式穿透。
+ */
+.confirm-sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 201;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+  border-radius: 14px 14px 0 0;
+  background: var(--surface);
+  overflow: hidden;
+  animation: rongmap-confirm-in .3s cubic-bezier(.19, 1, .22, 1) both;
+}
+@keyframes rongmap-confirm-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+/* 关闭：留在树上滑下去，动画结束才被 wx:if 摘除 */
+.confirm-sheet.is-closing { animation: rongmap-confirm-out .24s ease-in both; }
+@keyframes rongmap-confirm-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+.confirm-sheet__header {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--gutter) 10px;
+  border-bottom: 1px solid var(--line);
+}
+.confirm-sheet__title { flex: 1; min-width: 0; }
+
+.confirm-sheet__body {
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  max-height: 46vh;
+  padding: 14px var(--gutter) 20px;
+  overflow-y: auto;
+}
+
+.confirm-sheet__message {
+  display: block;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.confirm-sheet__footer {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px var(--gutter) calc(12px + var(--safe-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.confirm-sheet__footer .btn { flex: 1 1 0; min-width: 96px; }

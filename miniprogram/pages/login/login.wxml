@@ -1,0 +1,93 @@
+<view class="page login">
+  <view class="login__stack">
+    <view wx:if="{{checking}}" class="login__boot">
+      <view class="login__brand-dot login__brand-dot--lg"></view>
+      <view class="login__skeleton"></view>
+      <text class="eyebrow login__boot-copy">正在检查登录状态</text>
+    </view>
+
+    <!-- 首次登录的第二步：称呼用官方「昵称填写能力」，键盘上方给出微信昵称，点一下即填入 -->
+    <block wx:elif="{{registering}}">
+      <view class="login__card">
+        <view class="login__brand">
+          <view class="login__brand-dot"></view>
+          <text class="login__brand-name">RongMap</text>
+        </view>
+
+        <text class="eyebrow">完善称呼</text>
+        <text class="h1">让家人认出你</text>
+        <text class="login__copy">点一下输入框，键盘上方会出现微信昵称，点它就能填入，也可以自己写。</text>
+
+        <view wx:if="{{error}}" class="notice notice--error login__error">
+          <text class="notice__mark">!</text>
+          <text>{{error}}</text>
+        </view>
+
+        <view class="login__form">
+          <view class="login__field">
+            <text class="field__label">称呼</text>
+            <input
+              class="field__input"
+              type="nickname"
+              value="{{registerName}}"
+              maxlength="40"
+              cursor-spacing="24"
+              placeholder="用微信昵称，或自己写一个"
+              bindinput="onRegisterNameInput"
+              bindblur="onRegisterNameBlur"
+              bindconfirm="onCompleteRegister"
+            />
+          </view>
+
+          <view class="btn btn--primary btn--block login__submit {{loggingIn ? 'is-disabled' : ''}}" hover-class="btn--pressed" hover-stay-time="60" bindtap="onCompleteRegister">
+            {{loggingIn ? '进入中…' : '完成'}}
+          </view>
+          <view class="btn btn--text btn--block login__skip" hover-class="btn--pressed" hover-stay-time="60" bindtap="onSkipRegister">跳过，先显示为「空间成员」</view>
+        </view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="login__card">
+        <view class="login__brand">
+          <view class="login__brand-dot"></view>
+          <text class="login__brand-name">RongMap</text>
+        </view>
+
+        <text class="eyebrow">成员登录</text>
+        <text class="h1">回到亲友共享地图</text>
+        <text class="login__copy">把想去的地方收进一张地图，和朋友一起攒、一起看。</text>
+
+        <view wx:if="{{error}}" class="notice notice--error login__error">
+          <text class="notice__mark">!</text>
+          <text>{{error}}</text>
+        </view>
+
+        <view class="login__form">
+          <view class="login__field">
+            <text class="field__label">访问密码</text>
+            <input
+              class="field__input"
+              type="number"
+              password="{{true}}"
+              value="{{accessCode}}"
+              cursor-spacing="24"
+              placeholder="请输入访问密码"
+              bindinput="onCodeInput"
+              bindconfirm="onLogin"
+            />
+          </view>
+
+          <view class="btn btn--primary btn--block login__submit {{loggingIn ? 'is-disabled' : ''}}" hover-class="btn--pressed" hover-stay-time="60" bindtap="onLogin">
+            {{loggingIn ? '登录中…' : '微信一键登录'}}
+          </view>
+        </view>
+      </view>
+
+      <view class="notice login__note">
+        <text class="notice__mark">i</text>
+        <text>登录后与家人朋友共享同一份收藏，地点存在云端。</text>
+      </view>
+    </block>
+  </view>
+</view>

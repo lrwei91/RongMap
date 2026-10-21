@@ -1,0 +1,17 @@
+/* 高度完全由父容器决定：这里写死 min-height 会在矮屏上把下面的列表整体顶出视口。 */
+.map-card {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  /* 墨框与分段控件/印章同一套描边语言：地图是页面的「主画框」 */
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* 原生组件必须显式给尺寸，否则不渲染。 */
+.map-canvas {
+  width: 100%;
+  height: 100%;
+}

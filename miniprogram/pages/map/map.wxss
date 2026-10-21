@@ -1,0 +1,164 @@
+/*
+ * 地图页是唯一「视口固定」的页面：地图定高，下面的列表单独滚动。
+ * 高度链路 page(100%) → .map-page(100%) → __main(flex:1) → __panel(flex:1) → __list(flex:1)
+ * 中间任何一层缺 min-height: 0，scroll-view 就会被内容顶开。
+ */
+.map-page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* 顶部内边距与其它两个 tab 页的 .page（16px）对齐，切 tab 时标题不会上下跳 */
+  padding: 16px var(--gutter) 0;
+}
+
+.map-page__main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/*
+ * 页内标题行：左「MAP + 地图」、右「定位」，形态与地点页页头（标题 + ＋添加）一致。
+ * 这一行不参与压缩（flex: 0 0 auto），否则矮屏上会被下面的 flex 链路挤扁。
+ */
+.map-page__bar {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  /* 比全局 .page-head 的 14px 再收紧 4px，把高度让给地图与列表 */
+  margin-bottom: 10px;
+}
+
+.map-page__title { flex: 1; min-width: 0; }
+
+/* 定位：印章家族纸面款；页头行内不参与压缩；定位中 ◉ 旋转（罗盘） */
+.map-page__locate { flex: 0 0 auto; }
+.map-page__locate.is-busy .stamp-mark {
+  animation: rongmap-mode-spin 1s linear infinite;
+}
+
+/* 地图高度按比例给：比早期版本放大（32% → 46%），列表相应让出一部分高度，
+   小屏仍有下限、大屏也有上限，两边都不至于被压扁或占满整页。 */
+.map-page__stage {
+  flex: 0 0 46%;
+  min-height: 220px;
+  max-height: 420px;
+}
+
+.map-page__panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding-top: 12px;
+}
+
+/*
+ * 面板顶行：两种模式共用「分类筛选 + 发现小馆开关」。
+ * segmented 不再占满整行（向左收窄），右侧腾出模式切换按钮的位置。
+ */
+.map-page__toolbar {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.map-page__toolbar .map-page__segmented {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.map-page__toolbar .segmented__item {
+  /* 平分铺满筛选行：等分宽度 + 禁止折行；字号收到 11px 保证四项放得下 */
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+/*
+ * 「发现小馆」：印章家族黄底款（形状与投影在 app.wxss 的 .stamp）。
+ * is-active（发现中）= 印章盖下去：投影收起、整体位移、墨底黄字反转。
+ * is-loading：⌖ 旋转（罗盘），替代「正在搜索…」文案。
+ */
+.map-page__mode.is-active {
+  background: var(--ink);
+  color: var(--yellow);
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+@keyframes rongmap-mode-spin { to { transform: rotate(360deg); } }
+.map-page__mode.is-loading .stamp-mark {
+  animation: rongmap-mode-spin 1s linear infinite;
+}
+
+.map-page__list {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: calc(12px + var(--safe-bottom));
+}
+
+/* ---- 发现小馆（对应 Web 端 .discovery-* 一族）---- */
+.discovery__results { margin-top: 10px; }
+.discovery__hint {
+  margin: 0 0 8px;
+  padding: 8px;
+  background: var(--yellow-soft);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.discovery__notice { margin: 0 0 8px; }
+.discovery__summary { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.discovery__card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.discovery__card.is-active { border-color: var(--ink); background: var(--yellow-soft); }
+.discovery__card-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.discovery__card-name { font-size: 14px; font-weight: 800; color: var(--ink); word-break: break-all; }
+.discovery__card-address { color: var(--muted); font-size: 12px; word-break: break-all; }
+.discovery__card-meta { color: var(--muted); font-size: 11px; }
+.discovery__collect { flex: 0 0 auto; }
+.discovery__footnote {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.discovery__card-name,
+.discovery__card-address,
+.discovery__card-meta,
+.discovery__summary,
+.discovery__hint { min-width: 0; }
+.map-page__list .list { overflow: hidden; }
+.map-page__list .location-card:last-child { border-bottom: 0; }
+
+/* 加载/报错/空态占住列表那块高度，避免切态时页面跳动 */
+.map-page__placeholder {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+}
+.map-page__placeholder .notice { width: 100%; }
+.map-page__placeholder .empty { padding: 0 16px 24px; }

@@ -1,0 +1,58 @@
+<view class="page activity-page">
+  <view class="page-head">
+    <view class="activity-page__title">
+      <text class="eyebrow">ACTIVITY</text>
+      <text class="h2">活动记录</text>
+    </view>
+  </view>
+
+  <view wx:if="{{ready && hasAny}}" class="activity-page__filters">
+    <picker mode="selector" range="{{memberLabels}}" value="{{memberIndex}}" bindchange="onMemberFilter">
+      <view class="activity-page__filter">
+        <text class="activity-page__filter-text">{{memberLabels[memberIndex]}}</text>
+        <text class="activity-page__caret">▾</text>
+      </view>
+    </picker>
+    <picker mode="selector" range="{{actionLabels}}" value="{{actionIndex}}" bindchange="onActionFilter">
+      <view class="activity-page__filter">
+        <text class="activity-page__filter-text">{{actionLabels[actionIndex]}}</text>
+        <text class="activity-page__caret">▾</text>
+      </view>
+    </picker>
+  </view>
+
+  <view wx:if="{{loading}}" class="activity-page__loading">
+    <view class="skeleton">
+      <view class="skeleton__card"></view>
+      <view class="skeleton__card"></view>
+      <view class="skeleton__card skeleton__card--short"></view>
+    </view>
+  </view>
+
+  <view wx:elif="{{error}}" class="notice notice--error">
+    <text class="notice__mark">!</text>
+    <text>{{error}}</text>
+    <text class="notice__retry" bindtap="onRetry">重试</text>
+  </view>
+
+  <view wx:elif="{{!list.length}}" class="empty">
+    <text class="empty__mark">↻</text>
+    <text class="empty__title">{{filtered ? '没有符合条件的记录' : '还没有操作记录'}}</text>
+    <text class="empty__copy">{{filtered ? '换个成员或动作再试试。' : '成员的新增、修改、删除和恢复会显示在这里。'}}</text>
+  </view>
+
+  <view wx:else class="list">
+    <view
+      wx:for="{{list}}"
+      wx:key="id"
+      class="row enter-rise"
+      style="animation-delay: {{index < 8 ? index * 30 : 240}}ms"
+    >
+      <view class="row__main">
+        <text class="row__title">{{item.actorName}} {{item.actionLabel}}</text>
+        <text class="row__copy">{{item.targetName}}</text>
+        <text class="row__copy">{{item.agoText}} · {{item.atText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

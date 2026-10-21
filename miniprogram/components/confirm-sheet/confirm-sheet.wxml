@@ -1,0 +1,16 @@
+<view wx:if="{{mounted}}">
+  <view class="sheet-mask {{closing ? 'is-closing' : ''}}" bindtap="onCancel"></view>
+  <view class="sheet confirm-sheet {{closing ? 'is-closing' : ''}}" catchtap="noop">
+    <view class="sheet__header confirm-sheet__header">
+      <text class="h3 confirm-sheet__title">{{title}}</text>
+      <view class="sheet__close" hover-class="btn--pressed" hover-stay-time="60" aria-role="button" aria-label="关闭" catchtap="onCancel">✕</view>
+    </view>
+    <view class="sheet__body confirm-sheet__body">
+      <text class="muted confirm-sheet__message">{{message}}</text>
+    </view>
+    <view class="sheet__footer confirm-sheet__footer">
+      <view class="btn btn--quiet" hover-class="btn--pressed" hover-stay-time="60" bindtap="onCancel">{{cancelText}}</view>
+      <view class="btn {{danger ? 'btn--danger' : 'btn--primary'}}" hover-class="btn--pressed" hover-stay-time="60" bindtap="onConfirm">{{confirmText}}</view>
+    </view>
+  </view>
+</view>

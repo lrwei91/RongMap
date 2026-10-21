@@ -1,0 +1,41 @@
+<view class="filter-block">
+  <view class="filter-primary">
+    <picker class="filter-picker" mode="selector" range="{{categoryLabels}}" value="{{categoryIndex}}" bindchange="onCategory">
+      <view class="filter-picker__value">{{categoryLabels[categoryIndex]}}</view>
+    </picker>
+    <picker class="filter-picker" mode="selector" range="{{sortLabels}}" value="{{sortIndex}}" bindchange="onSort">
+      <view class="filter-picker__value">{{sortLabels[sortIndex]}}</view>
+    </picker>
+    <view class="filter-toggle {{activeCount ? 'is-active' : ''}}" bindtap="toggleExpanded">
+      筛选{{activeCount ? ' ' + activeCount : ''}}
+    </view>
+  </view>
+
+  <view wx:if="{{expanded}}" class="filter-more">
+    <view class="filter-field">
+      <text class="filter-field__label">定位状态</text>
+      <picker mode="selector" range="{{geocodedLabels}}" value="{{geocodedIndex}}" bindchange="onGeocoded">
+        <view class="filter-picker__value">{{geocodedLabels[geocodedIndex]}}</view>
+      </picker>
+    </view>
+    <view class="filter-field">
+      <text class="filter-field__label">添加者</text>
+      <picker mode="selector" range="{{memberLabels}}" value="{{memberIndex}}" bindchange="onMember">
+        <view class="filter-picker__value">{{memberLabels[memberIndex]}}</view>
+      </picker>
+    </view>
+    <view class="filter-field">
+      <text class="filter-field__label">来源</text>
+      <picker mode="selector" range="{{sourceLabels}}" value="{{sourceIndex}}" bindchange="onSource">
+        <view class="filter-picker__value">{{sourceLabels[sourceIndex]}}</view>
+      </picker>
+    </view>
+    <view class="filter-field">
+      <text class="filter-field__label">标签</text>
+      <picker mode="selector" range="{{tagLabels}}" value="{{tagIndex}}" bindchange="onTag">
+        <view class="filter-picker__value">{{tagLabels[tagIndex]}}</view>
+      </picker>
+    </view>
+    <view wx:if="{{activeCount}}" class="btn btn--text" bindtap="clear">清空筛选</view>
+  </view>
+</view>

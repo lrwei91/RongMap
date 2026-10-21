@@ -1,0 +1,153 @@
+<view class="page mine-page">
+  <view class="page-head">
+    <view class="mine-page__title">
+      <text class="eyebrow">ACCOUNT</text>
+      <text class="h2">我的</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">正在加载…</view>
+
+  <view wx:elif="{{error}}" class="notice notice--error">
+    <text class="notice__mark">!</text>
+    <text>{{error}}</text>
+    <text class="notice__retry" bindtap="onRetry">重试</text>
+  </view>
+
+  <block wx:else>
+    <view class="card mine-page__profile">
+      <view class="avatar mine-page__avatar">{{initial}}</view>
+      <view class="mine-page__profile-copy">
+        <text class="h3">{{currentUser.name}}</text>
+        <text class="muted small">{{isAdmin ? '管理员' : '成员'}} · {{spaceName}}</text>
+      </view>
+      <view class="btn btn--quiet mine-page__profile-action" hover-class="btn--pressed" hover-stay-time="60" bindtap="onRenameSelf">改称呼</view>
+    </view>
+
+    <view class="list mine-page__stats">
+      <view class="row">
+        <view class="row__main">
+          <text class="row__title">地点</text>
+          <text class="row__copy">共享空间内已收藏的地点</text>
+        </view>
+        <text class="strong">{{stats.locations}}</text>
+      </view>
+      <view class="row">
+        <view class="row__main">
+          <text class="row__title">成员</text>
+          <text class="row__copy">共同维护这张地图的人</text>
+        </view>
+        <text class="strong">{{stats.members}}</text>
+      </view>
+      <view class="row row--last">
+        <view class="row__main">
+          <text class="row__title">标签</text>
+          <text class="row__copy">给地点打的标记</text>
+        </view>
+        <text class="strong">{{stats.tags}}</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section__head">
+        <text class="h3">成员</text>
+      </view>
+      <view class="list">
+        <view
+          wx:for="{{members}}"
+          wx:key="id"
+          class="row"
+          data-id="{{item.id}}"
+          bindtap="onMemberTap"
+        >
+          <view class="avatar">{{item.initial}}</view>
+          <view class="row__main">
+            <text class="row__title">{{item.name}}</text>
+            <text class="row__copy">{{item.role === 'admin' ? '管理员' : '成员'}}{{item.id === currentUser.id ? ' · 我' : ''}}</text>
+          </view>
+          <text class="subtle small">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section__head">
+        <text class="h3">标签</text>
+        <view class="btn btn--text" hover-class="btn--pressed" hover-stay-time="60" bindtap="onCreateTag">新建</view>
+      </view>
+      <view wx:if="{{!tags.length}}" class="notice">
+        <text class="notice__mark">i</text>
+        <text>还没有标签。新建后可在添加地点时勾选。</text>
+      </view>
+      <view wx:else class="list">
+        <view wx:for="{{tags}}" wx:key="id" class="row">
+          <view class="row__main">
+            <text class="row__title">{{item.name}}</text>
+          </view>
+          <view class="btn btn--danger-quiet mine-page__tag-action" hover-class="btn--pressed" hover-stay-time="60" data-id="{{item.id}}" catchtap="onDeleteTag">删除</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section__head">
+        <text class="h3">数据与记录</text>
+      </view>
+      <view class="list">
+        <view class="row" bindtap="onOpenTrash">
+          <view class="row__main">
+            <text class="row__title">回收站</text>
+            <text class="row__copy">{{stats.trash}} 个地点待清理</text>
+          </view>
+          <text class="subtle small">›</text>
+        </view>
+        <view class="row row--last" bindtap="onOpenActivity">
+          <view class="row__main">
+            <text class="row__title">活动记录</text>
+            <text class="row__copy">谁在什么时候改了什么</text>
+          </view>
+          <text class="subtle small">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section__head">
+        <text class="h3">设置</text>
+      </view>
+      <view class="list">
+        <view class="row" bindtap="onShowPrivacy">
+          <view class="row__main">
+            <text class="row__title">隐私说明</text>
+            <text class="row__copy">位置与数据的用途</text>
+          </view>
+          <text class="subtle small">›</text>
+        </view>
+        <view class="row" bindtap="onOpenAbout">
+          <view class="row__main">
+            <text class="row__title">关于</text>
+            <text class="row__copy">版本与运行环境</text>
+          </view>
+          <text class="subtle small">›</text>
+        </view>
+        <view class="row row--last" bindtap="onLogout">
+          <view class="row__main">
+            <text class="row__title danger-text">退出登录</text>
+            <text class="row__copy">清除本机登录状态</text>
+          </view>
+          <text class="subtle small">›</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <confirm-sheet
+    visible="{{confirmVisible}}"
+    title="{{confirmTitle}}"
+    message="{{confirmMessage}}"
+    confirm-text="{{confirmText}}"
+    danger="{{confirmDanger}}"
+    bind:cancel="onConfirmCancel"
+    bind:confirm="onConfirmAction"
+  />
+</view>

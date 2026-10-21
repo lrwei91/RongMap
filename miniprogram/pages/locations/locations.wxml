@@ -1,0 +1,82 @@
+<view class="page locations-page">
+  <view class="page-head">
+    <view class="locations-page__title">
+      <text class="eyebrow">LOCATIONS</text>
+      <text class="h2">地点</text>
+    </view>
+    <view
+      class="stamp stamp--ink page-head__action"
+      hover-class="stamp--pressed"
+      hover-stay-time="80"
+      bindtap="onAdd"
+    >＋ 添加</view>
+  </view>
+
+  <view class="locations-page__meta">
+    <text class="muted small">共 {{total}} 个收藏</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="locations-page__loading">
+    <view class="skeleton">
+      <view class="skeleton__card"></view>
+      <view class="skeleton__card"></view>
+      <view class="skeleton__card skeleton__card--short"></view>
+    </view>
+  </view>
+
+  <view wx:elif="{{error}}" class="notice notice--error">
+    <text class="notice__mark">!</text>
+    <text>{{error}}</text>
+    <text class="notice__retry" bindtap="onRetry">重试</text>
+  </view>
+
+  <view wx:elif="{{!list.length}}" class="empty">
+    <text class="empty__mark">⌖</text>
+    <text class="empty__title">还没有收藏地点</text>
+    <text class="empty__copy">点右上角「添加」录入第一个，或到地图页点空白处新增。</text>
+  </view>
+
+  <view wx:else class="list locations-page__list">
+    <location-card
+      wx:for="{{list}}"
+      wx:key="id"
+      class="enter-rise"
+      style="animation-delay: {{index < 8 ? index * 32 : 256}}ms"
+      location="{{item}}"
+      bind:open="onCardOpen"
+      bind:focus="onCardFocus"
+      bind:edit="onCardEdit"
+      bind:delete="onCardDelete"
+    />
+  </view>
+
+  <location-detail
+    visible="{{detailVisible}}"
+    location="{{detailTarget}}"
+    members="{{members}}"
+    bind:close="onDetailClose"
+    bind:edit="onDetailEdit"
+    bind:focus="onDetailFocus"
+    bind:delete="onDetailDelete"
+  />
+
+  <location-form
+    visible="{{formVisible}}"
+    location="{{formTarget}}"
+    draft="{{formDraft}}"
+    tags="{{tags}}"
+    bind:close="onFormClose"
+    bind:saved="onFormSaved"
+    bind:createtag="onFormCreateTag"
+  />
+
+  <confirm-sheet
+    visible="{{confirmVisible}}"
+    title="{{confirmTitle}}"
+    message="{{confirmMessage}}"
+    confirm-text="{{confirmText}}"
+    danger="{{confirmDanger}}"
+    bind:cancel="onConfirmCancel"
+    bind:confirm="onConfirmAction"
+  />
+</view>

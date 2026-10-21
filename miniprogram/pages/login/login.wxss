@@ -1,0 +1,122 @@
+/*
+ * 登录页：按原 Web 端 src/pages/StandalonePages.jsx + src/styles.css 的
+ * auth-page / auth-card / brand-lockup / boot-state 版式重做——
+ * 之前移植时这套版式整个丢了，页面只剩文字堆叠，所以显得很原始。
+ *
+ * 与 Web 端的差异，都是为窄屏/小程序做的调整：
+ * 1. 垂直居中改用 flex 列的 margin: auto 0，而不是 place-items: center——
+ *    内容高于一屏时 auto 外边距自动归零，不会像居中那样把顶部顶出可视区又滚不回去。
+ * 2. 卡片内边距 32px → 28px，正文 15px → 14px，按钮 42px → 48px（触控面积）。
+ * 3. 错误提示从「表单之后」挪到「按钮之前」，窄屏上不用滚动就能看到失败原因。
+ * 4. 说明文案留在卡片外、下方，卡片只承载品牌与登录动作。
+ */
+.login {
+  display: flex;
+  flex-direction: column;
+}
+.login__stack {
+  box-sizing: border-box;
+  margin: auto 0;
+}
+
+/* ---- 载入态（对应 Web 的 .boot-state）---- */
+.login__boot {
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 0 40px;
+  text-align: center;
+}
+.login__skeleton {
+  box-sizing: border-box;
+  position: relative;
+  width: 220px;
+  height: 8px;
+  overflow: hidden;
+  background: var(--line);
+}
+.login__skeleton::after {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: var(--yellow);
+  animation: rongmap-skeleton 1s infinite alternate;
+  content: '';
+}
+@keyframes rongmap-skeleton {
+  to { transform: translateX(150%); }
+}
+.login__boot-copy { margin: 18px 0 0; }
+
+/* ---- 品牌锁形 ---- */
+.login__brand {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  margin-bottom: 34px;
+}
+.login__brand-dot {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--yellow);
+}
+/* 检查登录态的方章标志：盖印式落场 */
+.login__brand-dot--lg { box-sizing: border-box; width: 28px; height: 28px; margin-bottom: 12px; animation: rongmap-stamp-in .45s cubic-bezier(.34, 1.56, .64, 1) both; }
+.login__brand-name {
+  color: var(--ink);
+  font-family: Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* ---- 卡片 ---- */
+.login__card {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 28px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  animation: rongmap-card-in .38s ease-out both;
+}
+@keyframes rongmap-card-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.login__copy {
+  display: block;
+  margin: 10px 0 24px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 表单区自带间距，字段内部仍由 .field__label / .field__hint 的自身外边距收紧 */
+.login__form {
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 14px;
+}
+.login__field { min-width: 0; }
+.login__submit { min-height: 48px; }
+.login__error { margin: 0 0 14px; }
+
+/* 跳过：文字态贴在主按钮下，只保证可点面积，不抢视觉 */
+.login__skip { min-height: 40px; }
+
+/* 说明文案放在卡片外，视觉上退到次要层级 */
+.login__note { margin-top: 16px; }
+
+.login__boot-copy,
+.login__copy,
+.login__brand-name { min-width: 0; }

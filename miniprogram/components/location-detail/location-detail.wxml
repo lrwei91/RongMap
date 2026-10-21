@@ -1,0 +1,175 @@
+<view wx:if="{{mounted && location}}">
+  <view class="sheet-mask {{closing ? 'is-closing' : ''}}" bindtap="onClose"></view>
+  <view class="sheet sheet--tall detail-sheet {{closing ? 'is-closing' : ''}}" style="{{sheetStyle}}" catchtap="noop">
+    <view class="sheet__header detail-sheet__header">
+      <view class="detail-sheet__title">
+        <view class="category-square category-square--{{location.category}}">{{categoryShort}}</view>
+        <view class="detail-sheet__title-copy">
+          <text class="h3">{{location.name}}</text>
+          <text class="muted small">{{categoryLabel}} · {{sourceLabel}}</text>
+        </view>
+      </view>
+      <view class="sheet__close" hover-class="btn--pressed" hover-stay-time="60" aria-role="button" aria-label="关闭" catchtap="onClose">✕</view>
+    </view>
+
+    <scroll-view class="sheet__body detail-sheet__body" scroll-y>
+      <view wx:if="{{location.address}}" class="detail-sheet__block" bindtap="onCopyAddress">
+        <text class="field__label">地址</text>
+        <text class="detail-sheet__text">{{location.address}}</text>
+        <text class="field__hint">点击复制</text>
+      </view>
+
+      <view wx:if="{{location.reason}}" class="detail-sheet__block">
+        <text class="field__label">备注</text>
+        <text class="detail-sheet__text">{{location.reason}}</text>
+      </view>
+
+      <view wx:if="{{tagNames.length}}" class="detail-sheet__block">
+        <text class="field__label">标签</text>
+        <view class="detail-sheet__tags">
+          <text wx:for="{{tagNames}}" wx:key="*this" class="tag tag--strong">{{item}}</text>
+        </view>
+      </view>
+
+      <view class="list detail-sheet__meta">
+        <view class="row">
+          <view class="row__main">
+            <text class="row__title">添加者</text>
+            <text class="row__copy">{{memberName}}</text>
+          </view>
+        </view>
+        <view class="row">
+          <view class="row__main">
+            <text class="row__title">添加时间</text>
+            <text class="row__copy">{{createdAtText}}</text>
+          </view>
+        </view>
+        <view class="row row--last">
+          <view class="row__main">
+            <text class="row__title">最近修改</text>
+            <text class="row__copy">{{updatedAtText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="detail-sheet__block detail-sheet__comments">
+        <view class="comments__head">
+          <text class="field__label comments__title">点评</text>
+          <text wx:if="{{comments.length}}" class="muted small">{{comments.length}} 条</text>
+        </view>
+
+        <view wx:if="{{commentsLoading && !comments.length}}" class="comments__state">正在加载点评…</view>
+
+        <view wx:elif="{{commentsError}}" class="notice notice--error">
+          <text class="notice__mark">!</text>
+          <text>{{commentsError}}</text>
+        </view>
+
+        <view wx:elif="{{!comments.length}}" class="comments__state">还没有点评，写下第一条吧。</view>
+
+        <view wx:else class="comments">
+          <view
+            wx:for="{{comments}}"
+            wx:key="id"
+            class="comment enter-rise {{item.isMine ? 'is-mine' : ''}}"
+            style="animation-delay: {{index < 5 ? index * 36 : 180}}ms"
+          >
+            <view class="comment__head">
+              <text class="comment__initial">{{item.initial}}</text>
+              <text class="comment__name">{{item.authorName}}</text>
+              <text class="comment__time muted small">{{item.timeText}}</text>
+            </view>
+            <text wx:if="{{item.content}}" class="comment__content">{{item.content}}</text>
+            <view wx:if="{{item.images.length}}" class="comment__images">
+              <block wx:for="{{item.images}}" wx:key="path" wx:for-item="img" wx:for-index="imgIndex">
+                <image
+                  wx:if="{{img.url}}"
+                  class="comment__image"
+                  src="{{img.url}}"
+                  mode="aspectFill"
+                  data-comment="{{index}}"
+                  data-index="{{imgIndex}}"
+                  catchtap="onPreviewImage"
+                />
+                <view wx:else class="comment__image comment__image--missing">图片不可用</view>
+              </block>
+            </view>
+            <view class="comment__actions">
+              <text
+                class="comment__like {{item.likedByMe ? 'is-liked' : ''}}"
+                data-id="{{item.id}}"
+                catchtap="onToggleLike"
+              >♥ {{item.likeCount}}</text>
+              <text
+                wx:if="{{item.isMine}}"
+                class="comment__delete"
+                data-id="{{item.id}}"
+                catchtap="onCommentDelete"
+              >删除</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="comments__composer">
+          <view class="comments__input-wrap">
+            <view wx:if="{{imageDrafts.length}}" class="comments__drafts">
+              <view wx:for="{{imageDrafts}}" wx:key="tempFilePath" class="comments__draft">
+                <image
+                  class="comments__draft-image"
+                  src="{{item.tempFilePath}}"
+                  mode="aspectFill"
+                  data-index="{{index}}"
+                  catchtap="onPreviewDraft"
+                />
+                <view class="comments__draft-remove" data-index="{{index}}" catchtap="onRemoveDraft">✕</view>
+              </view>
+            </view>
+            <textarea
+              class="comments__input"
+              value="{{commentDraft}}"
+              maxlength="{{commentMax}}"
+              placeholder="写下你的点评，其他成员都能看到…"
+              placeholder-class="comments__placeholder"
+              auto-height
+              cursor-spacing="24"
+              bindinput="onCommentInput"
+            />
+          </view>
+          <view class="comments__composer-row">
+            <view
+              wx:if="{{imageDrafts.length < imageMax}}"
+              class="stamp stamp--paper comments__pick"
+              hover-class="stamp--pressed"
+              hover-stay-time="80"
+              bindtap="onPickImages"
+            >＋ 图片</view>
+            <view
+              class="stamp stamp--ink comments__send {{commentSaving ? 'is-busy' : ''}}"
+              hover-class="stamp--pressed"
+              hover-stay-time="80"
+              bindtap="onCommentSubmit"
+            >{{imageUploading ? '上传中' : (commentSaving ? '发布中' : '发布')}}</view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="sheet__footer detail-sheet__footer">
+      <view class="btn btn--quiet" hover-class="btn--pressed" hover-stay-time="60" bindtap="onEdit">编辑</view>
+      <view wx:if="{{canFocus}}" class="btn btn--quiet" hover-class="btn--pressed" hover-stay-time="60" bindtap="onFocus">地图聚焦</view>
+      <!-- open-type="share" 由页面 onShareAppMessage 接管：data-* 随 res.target.dataset 带出地点身份 -->
+      <button
+        class="btn btn--quiet detail-sheet__share"
+        hover-class="btn--pressed"
+        hover-stay-time="60"
+        open-type="share"
+        data-id="{{location.id}}"
+        data-name="{{location.name}}"
+      >分享</button>
+      <view class="btn btn--primary" hover-class="btn--pressed" hover-stay-time="60" bindtap="onNavigate">导航</view>
+    </view>
+    <view class="detail-sheet__danger">
+      <view class="btn btn--danger-quiet btn--block" hover-class="btn--pressed" hover-stay-time="60" bindtap="onDelete">移入回收站</view>
+    </view>
+  </view>
+</view>

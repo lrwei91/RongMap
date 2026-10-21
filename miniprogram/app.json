@@ -1,0 +1,54 @@
+{
+  "pages": [
+    "pages/map/map",
+    "pages/locations/locations",
+    "pages/mine/mine",
+    "pages/login/login",
+    "pages/trash/trash",
+    "pages/activity/activity",
+    "pages/about/about"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "RongMap",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f6f4"
+  },
+  "tabBar": {
+    "color": "#8a8a86",
+    "selectedColor": "#1a1a1a",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/map/map",
+        "text": "地图",
+        "iconPath": "images/tabbar/map.png",
+        "selectedIconPath": "images/tabbar/map-active.png"
+      },
+      {
+        "pagePath": "pages/locations/locations",
+        "text": "地点",
+        "iconPath": "images/tabbar/locations.png",
+        "selectedIconPath": "images/tabbar/locations-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "images/tabbar/mine.png",
+        "selectedIconPath": "images/tabbar/mine-active.png"
+      }
+    ]
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于在地图上显示你的位置"
+    }
+  },
+  "requiredPrivateInfos": [
+    "chooseLocation"
+  ],
+  "sitemapLocation": "sitemap.json"
+}

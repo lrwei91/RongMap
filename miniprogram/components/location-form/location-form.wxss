@@ -1,0 +1,94 @@
+/*
+ * 弹层关键布局在组件内自持一份（数值与 app.wxss 的 .sheet 系列完全一致）。
+ * 这样容器高度不依赖「全局样式穿透到自定义组件」这一跨边界行为：
+ * 同一个类选择器权重相同，谁后加载结果都一样，不会出现取值打架。
+ */
+
+/* 容器：固定 86vh 是整条链路能算高度的起点 */
+.form-sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 201;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 86vh;
+  max-height: 86vh;
+  border-radius: 14px 14px 0 0;
+  background: var(--surface);
+  overflow: hidden;
+  animation: rongmap-form-in .32s cubic-bezier(.19, 1, .22, 1) both;
+}
+@keyframes rongmap-form-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+/* 关闭：留在树上滑下去，动画结束才被 wx:if 摘除 */
+.form-sheet.is-closing { animation: rongmap-form-out .24s ease-in both; }
+@keyframes rongmap-form-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+.form-sheet__header {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--gutter) 10px;
+  border-bottom: 1px solid var(--line);
+}
+.form-sheet__heading { flex: 1; min-width: 0; }
+
+/* sheet__body 是 scroll-view：父级高度确定 + flex:1 + min-height:0 才有滚动区 */
+.form-sheet__body {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  padding: 14px var(--gutter) 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.form-sheet__footer {
+  display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px var(--gutter) calc(12px + var(--safe-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.form-sheet__footer .btn { flex: 1 1 0; min-width: 96px; }
+
+/* 选点按钮占满一行，「清除」只在已选位置时出现，靠右不参与等分 */
+.form-sheet__location-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-sheet__location-btn { flex: 1 1 0; min-width: 0; }
+.form-sheet__location-row .btn--text { flex: 0 0 auto; }
+
+.form-sheet__caret { flex: 0 0 auto; margin-left: 8px; color: var(--muted); }
+
+/* 不用 app.wxss 的 .field__picker：这里需要 flex 让右侧箭头贴边。 */
+.form-sheet__picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 15px;
+}

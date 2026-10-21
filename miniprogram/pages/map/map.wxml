@@ -1,0 +1,173 @@
+<view class="map-page">
+  <view class="map-page__main">
+    <!--
+      页内标题行：左「小标签 + 大标题」、右「定位」，与地点页的「标题 + ＋添加」同形。
+      导航栏标题已清空，页面名统一在页内左上角承担（三个 tab 页一致）。
+    -->
+    <view class="page-head map-page__bar">
+      <view class="map-page__title">
+        <text class="eyebrow">MAP</text>
+        <text class="h2">地图</text>
+      </view>
+      <view
+        class="stamp stamp--paper map-page__locate {{locating ? 'is-busy' : ''}}"
+        hover-class="stamp--pressed"
+        hover-stay-time="80"
+        bindtap="onLocate"
+      ><text class="stamp-mark">◉</text><text>定位</text></view>
+    </view>
+
+    <view class="map-page__stage">
+      <!-- 发现模式下标记换成候选餐馆，收藏模式仍是收藏地点 -->
+      <map-canvas
+        id="rongmap-canvas"
+        locations="{{mode === 'discover' ? discoveryVisible : mapLocations}}"
+        active-id="{{activeId}}"
+        focus-request="{{focusRequest}}"
+        bind:select="onMapSelect"
+        bind:maptap="onMapTap"
+        bind:regionchange="onRegionChange"
+      />
+    </view>
+
+    <view class="map-page__panel">
+      <!-- 顶行两个部分：分类筛选（平分铺满）+ 发现小馆开关；下面的列表随选择切换 -->
+      <view class="map-page__toolbar">
+        <view class="segmented map-page__segmented">
+          <view
+            wx:for="{{categories}}"
+            wx:key="key"
+            class="segmented__item {{item.key === category ? 'is-active' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="onCategoryTap"
+          >{{item.label}}</view>
+        </view>
+        <view
+          class="stamp stamp--yellow map-page__mode {{mode === 'discover' ? 'is-active' : ''}} {{discoveryLoading ? 'is-loading' : ''}}"
+          hover-class="stamp--pressed"
+          hover-stay-time="80"
+          bindtap="onToggleDiscover"
+        ><text class="stamp-mark">⌖</text><text>发现小馆</text></view>
+      </view>
+
+      <block wx:if="{{mode === 'saved'}}">
+        <scroll-view wx:if="{{!loading && !error && list.length}}" class="map-page__list" scroll-y>
+          <view class="list">
+            <location-card
+              wx:for="{{list}}"
+              wx:key="id"
+              class="enter-rise"
+              style="animation-delay: {{index < 6 ? index * 32 : 192}}ms"
+              location="{{item}}"
+              active="{{item.id === activeId}}"
+              bind:open="onCardOpen"
+              bind:focus="onCardFocus"
+              bind:edit="onCardEdit"
+              bind:delete="onCardDelete"
+            />
+          </view>
+        </scroll-view>
+
+        <view wx:elif="{{loading}}" class="map-page__placeholder">
+          <view class="skeleton">
+            <view class="skeleton__card"></view>
+            <view class="skeleton__card"></view>
+            <view class="skeleton__card skeleton__card--short"></view>
+          </view>
+        </view>
+
+        <view wx:elif="{{error}}" class="map-page__placeholder">
+          <view class="notice notice--error">
+            <text class="notice__mark">!</text>
+            <text>{{error}}</text>
+            <text class="notice__retry" bindtap="onRetry">重试</text>
+          </view>
+        </view>
+
+        <view wx:else class="map-page__placeholder">
+          <view class="empty">
+            <text class="empty__mark">◎</text>
+            <text class="empty__title">当前区域没有地点</text>
+            <text class="empty__copy">拖动或缩放地图换一片区域；点地图空白处可直接在那里新增。</text>
+          </view>
+        </view>
+      </block>
+
+      <block wx:else>
+        <!-- 发现结果直接落在公共列表区：没有独立筛选，点按钮即搜 -->
+        <scroll-view class="map-page__list discovery__results" scroll-y>
+          <view wx:if="{{discoveryError}}" class="notice notice--error discovery__notice">
+            <text class="notice__mark">!</text>
+            <text>{{discoveryError}}{{discoveryResult ? '。下方保留上次结果。' : ''}}</text>
+          </view>
+          <view wx:if="{{discoveryResult && discoveryResult.partial}}" class="discovery__hint discovery__notice">部分区域搜索失败，结果不完整。</view>
+          <view wx:if="{{discoveryMoved}}" class="discovery__hint discovery__notice">地图已移动，再点一次「发现小馆」刷新结果。</view>
+          <view wx:if="{{discoveryResult}}" class="discovery__summary">{{discoveryVisible.length}} / {{discoveryResult.restaurants.length}} 家候选 · 查询于 {{discoveryFetchedAt}}</view>
+
+          <view wx:if="{{!discoveryResult}}" class="empty">
+            <text class="empty__mark">⌖</text>
+            <text class="empty__title">找一家想去的小馆</text>
+            <text class="empty__copy">搜索会按当前地图区域查找；没有结果时换一片区域再试。</text>
+          </view>
+          <view wx:elif="{{!discoveryVisible.length}}" class="empty">
+            <text class="empty__mark">⌖</text>
+            <text class="empty__title">本次搜索没有返回餐馆</text>
+            <text class="empty__copy">移动地图或放大到附近街区再试。</text>
+          </view>
+
+          <view
+            wx:for="{{discoveryVisible}}"
+            wx:key="id"
+            class="discovery__card enter-rise {{activeId === item.id ? 'is-active' : ''}}"
+            style="animation-delay: {{index < 6 ? index * 32 : 192}}ms"
+          >
+            <view class="discovery__card-main" data-id="{{item.id}}" bindtap="onDiscoveryCardTap">
+              <text class="discovery__card-name">{{item.name}}</text>
+              <text class="discovery__card-address">{{item.address || '地址暂无'}}</text>
+              <text class="discovery__card-meta">{{item.typeLabel}} · {{item.ratingLabel}} · {{item.costLabel}}</text>
+            </view>
+            <view
+              class="btn btn--sm {{item.saved ? 'btn--quiet is-disabled' : 'btn--primary'}} discovery__collect"
+              hover-class="btn--pressed"
+              hover-stay-time="60"
+              data-id="{{item.id}}"
+              bindtap="onDiscoveryCollect"
+            >{{item.saved ? '已收藏' : (discoverySavingId === item.sourceId ? '收藏中…' : '收藏')}}</view>
+          </view>
+        </scroll-view>
+
+        <text class="discovery__footnote">高德搜索候选，未覆盖全部餐馆。评分和人均仅供参考。</text>
+      </block>
+    </view>
+  </view>
+
+  <location-detail
+    visible="{{detailVisible}}"
+    location="{{detailTarget}}"
+    members="{{members}}"
+    bind:close="onDetailClose"
+    bind:edit="onDetailEdit"
+    bind:focus="onDetailFocus"
+    bind:delete="onDetailDelete"
+  />
+
+  <location-form
+    visible="{{formVisible}}"
+    location="{{formTarget}}"
+    draft="{{formDraft}}"
+    tags="{{tags}}"
+    bind:close="onFormClose"
+    bind:saved="onFormSaved"
+    bind:createtag="onFormCreateTag"
+  />
+
+  <confirm-sheet
+    visible="{{confirmVisible}}"
+    title="移入回收站"
+    message="{{confirmMessage}}"
+    confirm-text="移入回收站"
+    danger="{{true}}"
+    bind:cancel="onConfirmCancel"
+    bind:confirm="onConfirmDelete"
+  />
+</view>

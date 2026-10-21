@@ -1,0 +1,82 @@
+<view wx:if="{{mounted}}">
+  <view class="sheet-mask {{closing ? 'is-closing' : ''}}" bindtap="onClose"></view>
+  <view class="sheet sheet--tall form-sheet {{closing ? 'is-closing' : ''}}" style="{{sheetStyle}}" catchtap="noop">
+    <view class="sheet__header form-sheet__header">
+      <view class="form-sheet__heading">
+        <text class="eyebrow">{{location ? 'EDIT' : 'NEW'}}</text>
+        <text class="h3">{{location ? '编辑地点' : '添加地点'}}</text>
+      </view>
+      <view class="sheet__close" hover-class="btn--pressed" hover-stay-time="60" aria-role="button" aria-label="关闭" catchtap="onClose">✕</view>
+    </view>
+
+    <scroll-view class="sheet__body form-sheet__body" scroll-y>
+      <view wx:if="{{error}}" class="notice notice--error">
+        <text class="notice__mark">!</text>
+        <text>{{error}}{{conflictName ? '：' + conflictName : ''}}</text>
+      </view>
+
+      <!-- 位置放最前：选点会顺带把名称填好，交互顺序与阅读顺序一致 -->
+      <view class="field">
+        <text class="field__label">位置</text>
+        <view class="form-sheet__location-row">
+          <view class="btn btn--quiet form-sheet__location-btn" bindtap="onPickLocation">地图选点</view>
+          <view wx:if="{{form.latitude !== null}}" class="btn btn--text" bindtap="onClearLocation">清除</view>
+        </view>
+        <text wx:if="{{form.address}}" class="field__hint">{{form.address}}</text>
+        <text wx:elif="{{form.latitude !== null}}" class="field__hint">已选定地图上的一点</text>
+        <text wx:else class="field__hint">选好后会自动填入名称</text>
+      </view>
+
+      <view class="field">
+        <text class="field__label">名称</text>
+        <input
+          class="field__input"
+          value="{{form.name}}"
+          data-field="name"
+          maxlength="120"
+          cursor-spacing="24"
+          placeholder="必填"
+          bindinput="onInput"
+        />
+      </view>
+
+      <view class="field">
+        <text class="field__label">分类</text>
+        <picker mode="selector" range="{{categoryLabels}}" value="{{categoryIndex}}" bindchange="onCategoryChange">
+          <view class="form-sheet__picker">
+            <text>{{categoryLabels[categoryIndex]}}</text>
+            <text class="form-sheet__caret">▾</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="field">
+        <text class="field__label">备注（选填）</text>
+        <textarea
+          class="field__textarea"
+          value="{{form.reason}}"
+          data-field="reason"
+          maxlength="240"
+          cursor-spacing="24"
+          placeholder="补充推荐理由或其他说明"
+          bindinput="onInput"
+        />
+      </view>
+
+      <tag-picker
+        label="标签"
+        tags="{{tags}}"
+        selected="{{tagIds}}"
+        bind:change="onTagChange"
+        bind:create="onTagCreate"
+      />
+    </scroll-view>
+
+    <view class="sheet__footer form-sheet__footer">
+      <view class="btn btn--quiet" hover-class="btn--pressed" hover-stay-time="60" bindtap="onClose">取消</view>
+      <view class="btn btn--primary {{saving ? 'is-disabled' : ''}}" hover-class="btn--pressed" hover-stay-time="60" bindtap="onSave">
+        {{saving ? '保存中…' : '保存地点'}}
+      </view>
+    </view>
+  </view>
+</view>

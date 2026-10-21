@@ -1,0 +1,27 @@
+<view class="tag-picker">
+  <text class="field__label">{{label}}</text>
+
+  <view class="tag-picker__chips">
+    <view
+      wx:for="{{chips}}"
+      wx:key="id"
+      class="tag-picker__chip {{item.checked ? 'is-checked' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="onToggle"
+    >{{item.name}}</view>
+    <text wx:if="{{!chips.length}}" class="muted small">还没有标签，可在下方新建</text>
+  </view>
+
+  <view wx:if="{{allowCreate}}" class="tag-picker__create">
+    <input
+      class="field__input tag-picker__input"
+      value="{{draftName}}"
+      maxlength="24"
+      placeholder="新建标签"
+      confirm-type="done"
+      bindinput="onDraftInput"
+      bindconfirm="onCreate"
+    />
+    <view class="btn btn--quiet tag-picker__add" bindtap="onCreate">添加</view>
+  </view>
+</view>

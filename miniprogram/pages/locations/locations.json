@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "location-card": "../../components/location-card/location-card",
+    "location-detail": "../../components/location-detail/location-detail",
+    "location-form": "../../components/location-form/location-form",
+    "confirm-sheet": "../../components/confirm-sheet/confirm-sheet"
+  }
+}

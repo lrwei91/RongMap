@@ -1,0 +1,27 @@
+.mine-page__title { flex: 1; min-width: 0; }
+
+.mine-page__profile {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 12px;
+}
+
+.mine-page__avatar { width: 46px; height: 46px; font-size: 18px; }
+.mine-page__profile-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.mine-page__profile-copy .h3 { word-break: break-all; }
+.mine-page__profile-copy .small { word-break: break-all; }
+.mine-page__profile-action { flex: 0 0 auto; min-width: 82px; }
+
+.mine-page__stats { margin-top: 12px; }
+.mine-page__stats .row { align-items: center; }
+
+/* 成员行右侧的箭头不能被长称呼挤掉 */
+.mine-page .row__main { min-width: 0; }
+
+.mine-page__tag-action {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}

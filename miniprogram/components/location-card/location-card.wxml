@@ -1,0 +1,22 @@
+<!--
+  纯展示组件：分类文案、相对时间、添加者都由页面在构建列表时预计算好（见 utils/format.js
+  的 decorateLocation）。组件内不再挂 observer，列表变化时能省掉「每张卡片一次 setData」。
+-->
+<view class="location-card {{active ? 'is-active' : ''}}">
+  <view class="location-card__main" bindtap="onOpen">
+    <view class="category-square category-square--{{location.category}}">{{location.categoryShort}}</view>
+    <view class="location-card__copy">
+      <text class="location-card__name">{{location.name}}</text>
+      <text wx:if="{{location.address}}" class="location-card__address">{{location.address}}</text>
+      <view class="location-card__meta">
+        <text class="location-card__category">{{location.categoryLabel}}</text>
+        <block wx:for="{{location.tags}}" wx:key="id">
+          <text wx:if="{{index < 2}}" class="tag">{{item.name}}</text>
+        </block>
+        <text class="location-card__by">{{location.authorLabel}} · {{location.relative}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="location-card__more" hover-class="btn--pressed" hover-stay-time="60" aria-role="button" aria-label="更多操作" catchtap="onMore">•••</view>
+</view>

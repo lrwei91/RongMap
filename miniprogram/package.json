@@ -1,0 +1,9 @@
+{
+  "name": "rongmap-miniprogram",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RongMap 亲友共享地点地图 · 微信小程序版",
+  "dependencies": {
+    "@tencent-ai/workbuddy-cloud-sdk": "dev"
+  }
+}

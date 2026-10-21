@@ -1,0 +1,30 @@
+.activity-page__title { flex: 1; min-width: 0; }
+
+/* 骨架屏占位（加载完成时列表接在同一位置） */
+.activity-page__loading { padding: 2px 0; }
+
+/* 筛选行：两个等宽下拉（成员 / 动作），样式与该页其它控件一致 */
+.activity-page__filters { display: flex; gap: 8px; margin-bottom: 10px; }
+.activity-page__filters picker { flex: 1 1 0; min-width: 0; }
+.activity-page__filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+/* 成员名可能很长：文本必须可收缩+省略，否则会把两个下拉顶开 */
+.activity-page__filter-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-page__caret { flex: 0 0 auto; color: var(--muted); font-size: 11px; }

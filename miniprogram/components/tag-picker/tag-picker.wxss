@@ -1,0 +1,31 @@
+.tag-picker { margin-bottom: 14px; }
+
+.tag-picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tag-picker__chip {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.tag-picker__chip.is-checked {
+  border-color: var(--ink);
+  background: var(--yellow);
+}
+
+.tag-picker__create { display: flex; gap: 8px; }
+/* input 默认 min-width: auto，不加这一条在窄屏上会把右侧「添加」挤出容器 */
+.tag-picker__input { flex: 1 1 0; min-width: 0; }
+.tag-picker__add { flex: 0 0 auto; min-width: 72px; }

@@ -1,0 +1,15 @@
+.trash-page__title { flex: 1; min-width: 0; }
+
+/* 骨架屏占位（加载完成时列表接在同一位置） */
+.trash-page__loading { padding: 2px 0; }
+
+.trash-page__action {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+/* 行高随内容变化时按钮保持垂直居中 */
+.trash-page .row { align-items: center; }
+.trash-page .row__actions { align-items: center; }
