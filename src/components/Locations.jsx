@@ -42,7 +42,7 @@ export function LocationSearch({ value, onChange, locations, onSelect }) {
   }
 
   return (
-    <div className="search-field">
+    <div className="search-field" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
       <span aria-hidden="true">⌕</span>
       <input
         type="search"
@@ -116,6 +116,15 @@ export function FilterBar({ filters, onChange, members, tags }) {
 
 export function CompactLocationCard({ location, active, selected, member, onToggle, onOpen, onFocus, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const outside = (event) => { if (!menuRef.current?.contains(event.target)) setMenuOpen(false); };
+    const escape = (event) => { if (event.key === 'Escape') { setMenuOpen(false); menuRef.current?.querySelector('button')?.focus(); } };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, [menuOpen]);
   const category = CATEGORIES[location.category] || CATEGORIES.food;
   return (
     <article className={`location-card ${active ? 'is-active' : ''} ${menuOpen ? 'is-menu-open' : ''}`}>
@@ -135,7 +144,7 @@ export function CompactLocationCard({ location, active, selected, member, onTogg
           </span>
         </span>
       </button>
-      <div className="context-menu">
+      <div className="context-menu" ref={menuRef}>
         <button type="button" className="icon-button" aria-label={`打开 ${location.name} 操作菜单`} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>•••</button>
         {menuOpen ? (
           <div className="context-menu__popover">
@@ -209,7 +218,7 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
         )}
         {visibleCount < locations.length ? <button type="button" className="load-more" onClick={() => setVisibleCount((count) => count + 80)}>继续加载 {locations.length - visibleCount} 个地点</button> : null}
       </div>
-      <div className="panel-footer-actions">
+      <div className="panel-footer-actions desktop-transfer-actions">
         <button type="button" className="button button--quiet" onClick={onImport}>批量导入</button>
         <button type="button" className="button button--quiet" onClick={() => onExport('json')}>导出 JSON</button>
         <button type="button" className="button button--quiet" onClick={() => onExport('csv')}>导出 CSV</button>
@@ -219,7 +228,7 @@ export function LocationPanel({ locations, allLocations, filters, onFilters, act
   );
 }
 
-export function LocationDetailDrawer({ location, member, onClose, onFocus, onNavigate, onShare, onEdit, onDelete }) {
+export function LocationDetailDrawer({ location, member, onClose, onFocus, onNavigate, onShare, onEdit, onDelete, discovery, onCollect, collecting = false, collected = false, collectError = '' }) {
   const layerRef = useRef(null);
   const closeRef = useRef(null);
   useModalSurface(layerRef, Boolean(location), onClose);
@@ -236,17 +245,17 @@ export function LocationDetailDrawer({ location, member, onClose, onFocus, onNav
         </header>
         <div className="drawer-body" tabIndex={0} aria-label="地点详情内容">
           <section><h3>地址</h3><p>{location.address}</p></section>
-          <section><h3>备注</h3><p>{location.reason || '暂无备注'}</p></section>
+          {discovery ? <section><h3>商户信息</h3><p>{location.poiType?.split(';').at(-1) || category.label} · {location.rating == null ? '评分暂无' : `高德 ${location.rating} 分`} · {location.averageCost == null ? '人均未知' : `人均 ¥${location.averageCost}`}</p><p className="guide-unverified">高德查询结果，评分与人均仅供参考，营业情况请出发前确认。</p></section> : <section><h3>备注</h3><p>{location.reason || '暂无备注'}</p></section>}
           <section><h3>分类与标签</h3><div className="tag-row"><span className="tag tag--strong">{category.label}</span>{(location.tags || []).map((tag) => <span className="tag" key={tag.id || tag}>{tag.name || tag}</span>)}</div></section>
-          <section className="detail-grid"><div><h3>添加者</h3><p>{member?.name || location.createdByName || '空间成员'}</p></div><div><h3>添加时间</h3><p>{new Date(location.createdAt).toLocaleString('zh-CN')}</p></div></section>
+          {!discovery ? <section className="detail-grid"><div><h3>添加者</h3><p>{member?.name || location.createdByName || '空间成员'}</p></div><div><h3>添加时间</h3><p>{new Date(location.createdAt).toLocaleString('zh-CN')}</p></div></section> : null}
+          {collectError ? <p className="inline-notice inline-notice--error" role="alert">{collectError}</p> : null}
           {!hasPoint ? <div className="inline-notice inline-notice--warning"><span>!</span>该地点尚未定位，聚焦、导航和分享暂不可用。</div> : null}
         </div>
         <footer className="drawer-actions">
           <button type="button" className="button button--primary" disabled={!hasPoint} onClick={() => onFocus(location)}>聚焦地图</button>
           <button type="button" className="button button--quiet" disabled={!hasPoint} onClick={() => onNavigate(location)}>导航</button>
           <button type="button" className="button button--quiet" disabled={!hasPoint} onClick={() => onShare(location)}>分享</button>
-          <button type="button" className="button button--quiet" onClick={() => onEdit(location)}>编辑</button>
-          <button type="button" className="button button--danger-quiet" onClick={() => onDelete(location)}>移入回收站</button>
+          {discovery ? <button type="button" className="button button--quiet" disabled={collecting || collected} onClick={() => onCollect(location)}>{collected ? '已收藏' : collecting ? '收藏中…' : '收藏到共享地点'}</button> : <><button type="button" className="button button--quiet" onClick={() => onEdit(location)}>编辑</button><button type="button" className="button button--danger-quiet" onClick={() => onDelete(location)}>移入回收站</button></>}
         </footer>
       </aside>
     </div>

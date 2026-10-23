@@ -23,11 +23,16 @@ async function mocks(page, existing = false) {
   return { getTrip: () => trip, saves: () => saves };
 }
 async function generate(page) {
+  await expect(page.locator('.travel-guide-page')).toBeVisible();
+  const start = page.getByRole('button', { name: '新建旅行攻略', exact: true });
+  if (await start.isVisible()) await start.click();
   await page.getByLabel('目的地城市').fill('福州');
   await page.getByLabel('旅行天数').fill('1');
+  await page.locator('.guide-preferences > summary').click();
   await page.getByLabel('同行构成与偏好').fill('带长辈慢游');
   await page.getByRole('button', { name: '搜集候选地点', exact: true }).click();
   await expect(page.getByRole('heading', { name: '核对候选地点' })).toBeVisible();
+  await page.screenshot({ animations: 'disabled', path: `/tmp/rongmap-review/candidates-${page.viewportSize().width}.png` });
   await page.getByRole('button', { name: '生成旅行攻略', exact: true }).click();
   await expect(page.getByRole('heading', { name: '行程概览' })).toBeVisible();
   await expect(page.locator('.guide-steps li').nth(2)).toHaveAttribute('aria-current', 'step');
@@ -68,13 +73,17 @@ test('preserves requirements on source/model failure and supports retry', async 
   await mocks(page);
   await page.route('**/api/v2/travel-guide', (route) => route.request().postDataJSON().action === 'collect' ? route.fulfill({ json: { request, sources, places, warnings: [], researchToken: 'opaque' } }) : route.fulfill({ status: 502, json: { error: 'AI服务繁忙，请稍后重试' } }));
   await page.goto('/app/travel');
+  await page.getByRole('button', { name: '新建旅行攻略' }).click();
   await page.getByLabel('目的地城市').fill('福州');
+  await page.locator('.guide-preferences > summary').click();
   await page.getByLabel('必须满足的安排与避忌').fill('保留午休，不爬山');
   await page.getByRole('button', { name: '搜集候选地点' }).click();
   await page.getByRole('button', { name: '生成旅行攻略' }).click();
   await expect(page.getByRole('alert')).toContainText('AI服务繁忙');
-  await expect(page.getByLabel('必须满足的安排与避忌')).toHaveValue('保留午休，不爬山');
   await expect(page.getByRole('button', { name: '生成旅行攻略' })).toBeEnabled();
+  await page.getByRole('button', { name: '修改旅行需求' }).click();
+  await page.locator('.guide-preferences > summary').click();
+  await expect(page.getByLabel('必须满足的安排与避忌')).toHaveValue('保留午休，不爬山');
 });
 
 test('collects optional source details serially and falls back when a source fails', async ({ page }) => {
@@ -116,10 +125,15 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     const errors = []; page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/app/travel');
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await expect(page.getByRole('heading', { name: '我的旅行攻略' })).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: `/tmp/rongmap-review/library-${width}.png`, fullPage: true });
+    await page.getByRole('button', { name: '新建旅行攻略' }).click();
+    await expect(page.getByLabel('目的地城市')).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: `/tmp/rongmap-review/request-${width}.png`, fullPage: true });
     await generate(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.evaluate(() => window.scrollTo(0, 0));
-    if ([390, 1440].includes(width)) await page.screenshot({ path: `/tmp/rongmap-travel-guide-${width}.png`, fullPage: false });
+    if ([390, 1440].includes(width)) await page.screenshot({ animations: 'disabled', path: `/tmp/rongmap-travel-guide-${width}.png`, fullPage: false });
     await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     expect(errors).toEqual([]);
@@ -132,4 +146,52 @@ test('public sharing renders saved guide evidence without edit actions', async (
   await expect(page.getByRole('heading', { name: '来源与核验范围' })).toBeVisible();
   await expect(page.getByText('雨天减少室外步行')).toBeVisible();
   await expect(page.getByRole('button', { name: '保存旅行攻略' })).toHaveCount(0);
+});
+
+test('library keeps saved trips first and creation stays in separate stages', async ({ page }) => {
+  await mocks(page, true);
+  await page.goto('/app/travel');
+  await expect(page.getByRole('heading', { name: '我的旅行攻略' })).toBeVisible();
+  await expect(page.getByLabel('目的地城市')).toHaveCount(0);
+  await page.getByLabel('搜索旅行攻略').fill('不存在的攻略');
+  await expect(page.getByRole('heading', { name: '没有匹配的攻略或行程' })).toBeVisible();
+  await page.getByRole('button', { name: '清空搜索', exact: true }).click();
+  await expect(page.locator('.trip-card')).toHaveCount(1);
+  await generate(page);
+  await expect(page.locator('.guide-saved')).toHaveCount(0);
+  await page.getByRole('button', { name: '调整需求与地点' }).click();
+  await expect(page.getByLabel('目的地城市')).toHaveCount(0);
+  await page.getByRole('button', { name: '清空选择' }).click();
+  await expect(page.getByRole('button', { name: '生成旅行攻略' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /3.*预览与保存/ })).toBeDisabled();
+  await page.getByLabel('搜索候选地点').fill('小馆');
+  await expect(page.locator('.guide-candidates > label')).toHaveCount(1);
+  await page.getByRole('checkbox').check();
+  await expect(page.getByText('已选 1 / 24 个')).toBeVisible();
+  await page.getByRole('button', { name: '修改旅行需求' }).click();
+  await expect(page.getByLabel('目的地城市')).toHaveValue('福州');
+  await page.getByLabel('目的地城市').fill('厦门');
+  await expect(page.getByRole('button', { name: /2.*候选地点/ })).toBeDisabled();
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: '返回我的攻略' }).click();
+  await expect(page.getByLabel('目的地城市')).toHaveValue('厦门');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '返回我的攻略' }).click();
+  await expect(page.getByRole('heading', { name: '我的旅行攻略' })).toBeVisible();
+});
+
+test('save conflict reload asks before discarding the generated preview', async ({ page }) => {
+  await mocks(page, true);
+  await page.route('**/api/v2/trips?id=guide-1', (route) => route.request().method() === 'PUT' ? route.fulfill({ status: 409, json: { error: '版本冲突' } }) : route.fulfill({ json: { ...proposal(), id: 'guide-1', version: 2 } }));
+  await page.goto('/app/travel/guide-1');
+  await page.getByRole('button', { name: '重新规划' }).click();
+  await generate(page);
+  await page.getByRole('button', { name: '保存旅行攻略' }).click();
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: '载入最新版本' }).click();
+  await expect(page.getByRole('button', { name: '保存旅行攻略' })).toBeVisible();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '载入最新版本' }).click();
+  await expect(page.getByRole('button', { name: '保存旅行攻略' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '行程概览' })).toBeVisible();
 });

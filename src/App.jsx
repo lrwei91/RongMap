@@ -133,6 +133,8 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function openTrip(id) {
+    if (tripDirty && !window.confirm('当前行程还有未保存修改，确认离开吗？')) return;
+    setTripDirty(false);
     window.history.pushState({}, '', `/app/trips/${encodeURIComponent(id)}`);
     setRoute({ type: 'app', page: 'trip', tripId: id });
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -323,7 +325,7 @@ export default function App() {
           <button type="button" aria-pressed={mapMode === 'saved'} onClick={() => setMapMode('saved')}>已收藏</button>
           <button type="button" aria-pressed={mapMode === 'discover'} onClick={() => { setActiveLocation(null); setMapMode('discover'); }}>发现小馆</button>
         </div>
-        {mapMode === 'discover' ? <Suspense fallback={<p role="status">正在打开小馆发现…</p>}><Discovery savedLocations={data.locations} onCollect={collectRestaurant} /></Suspense> : <><LocationPanel {...sharedPanelProps} /><MapCanvas locations={filteredLocations} activeId={activeLocation?.id} focusRequest={focusRequest} onSelect={openDetail} /></>}
+        {mapMode === 'discover' ? <Suspense fallback={<p role="status">正在打开小馆发现…</p>}><Discovery savedLocations={data.locations} onCollect={collectRestaurant} onNavigate={navigateLocation} onShare={shareLocation} /></Suspense> : <><LocationPanel {...sharedPanelProps} /><MapCanvas locations={filteredLocations} activeId={activeLocation?.id} focusRequest={focusRequest} onSelect={openDetail} /></>}
       </main> : null}
       {route.page === 'locations' ? <main className="locations-page"><LocationPanel {...sharedPanelProps} fullPage /></main> : null}
       <Suspense fallback={PAGE_FALLBACK}>

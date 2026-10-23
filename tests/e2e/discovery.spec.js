@@ -41,6 +41,7 @@ test('discovery filters, collects once and feeds the existing locations view', a
   await openDiscovery(page);
   await page.getByLabel('人均预算').selectOption('30');
   await expect(page.locator('.discovery-card')).toHaveCount(2);
+  await page.getByRole('button', { name: /^筛选/ }).click();
   await page.getByLabel('保留价格未知').uncheck();
   await expect(page.locator('.discovery-card')).toHaveCount(1);
   await page.getByLabel('隐藏常见连锁').check();
@@ -80,8 +81,9 @@ test('partial results and duplicate collections explain the state', async ({ pag
 for (const width of [320, 390, 768, 1440]) test(`discovery fits ${width}px without horizontal overflow`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await openDiscovery(page);
-  await expect(page.getByLabel('发现小馆地图', { exact: true })).toBeVisible();
+  if (width >= 768) await expect(page.getByLabel('发现小馆地图', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '收藏榕城面馆', exact: true })).toBeVisible();
+  await page.screenshot({ animations: 'disabled', path: `/tmp/rongmap-review/discovery-${width}.png`, fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   if (width < 768) {
     const panel = page.locator('.discovery-panel');
@@ -102,4 +104,26 @@ test('discovery remains usable with enlarged text and mobile landscape', async (
   await expect(page.getByRole('button', { name: '收藏榕城面馆', exact: true })).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
+});
+
+for (const width of [390, 1440]) test(`discovery detail, collection and map focus share saved-place interaction at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await openDiscovery(page);
+  await page.getByRole('button', { name: '查看榕城面馆详情' }).click();
+  const detail = page.getByRole('dialog', { name: '榕城面馆' });
+  await expect(detail).toBeVisible();
+  await expect(detail.getByRole('button', { name: '导航', exact: true })).toBeEnabled();
+  await expect(detail.getByRole('button', { name: '分享', exact: true })).toBeEnabled();
+  await expect(detail.getByText('Invalid Date')).toHaveCount(0);
+  await page.screenshot({ animations: 'disabled', path: `/tmp/rongmap-review/discovery-detail-${width}.png` });
+  await detail.getByRole('button', { name: '收藏到共享地点' }).click();
+  await expect(detail.getByRole('button', { name: '已收藏', exact: true })).toBeDisabled();
+  await detail.getByRole('button', { name: '聚焦地图' }).click();
+  await expect(detail).toHaveCount(0);
+  await expect(page.getByLabel('发现小馆地图', { exact: true })).toBeVisible();
+  if (width < 768) {
+    await expect(page.locator('.discovery-panel')).toBeHidden();
+    await page.getByRole('button', { name: '列表 · 3', exact: true }).click();
+    await expect(page.getByRole('button', { name: '收藏榕城面馆' })).toBeDisabled();
+  }
 });

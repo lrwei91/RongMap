@@ -26,4 +26,10 @@ for (const width of [390, 1440]) test(`live discovery renders at ${width}px`, as
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('discovery-live.png'), fullPage: true });
+  await page.locator('.discovery-card .location-card__main').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: '聚焦地图', exact: true }).click();
+  await expect(page.getByLabel('发现小馆地图', { exact: true })).toBeVisible();
+  await expect(page.locator('.amap-location-marker.is-active')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('discovery-live-map.png') });
 });

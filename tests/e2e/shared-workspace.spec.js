@@ -79,7 +79,7 @@ test('search, filter and mobile navigation remain operable', async ({ page }) =>
   await page.getByRole('searchbox', { name: '搜索地点' }).fill('周末');
   await expect(page.locator('.location-card__copy > strong', { hasText: '地点 3' })).toBeVisible();
   await page.locator('.mobile-tab', { hasText: '攻略' }).click();
-  await expect(page.getByRole('heading', { name: '规划一份旅行攻略', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的旅行攻略', exact: true })).toBeVisible();
   await page.locator('.mobile-tab', { hasText: '我的' }).click();
   await page.getByRole('button', { name: '活动记录', exact: true }).click();
   await expect(page.getByRole('heading', { name: '活动记录' })).toBeVisible();
@@ -316,16 +316,32 @@ test('public trip sharing includes the saved roadbook without edit controls', as
   await expect(page.getByRole('button', { name: '保存路书' })).toHaveCount(0);
 });
 
-test('installation metadata and PNG icons are available without a session', async ({ request }) => {
-  const html = await (await request.get('/auth/login')).text();
-  expect(html).toContain('rel="apple-touch-icon"');
-  expect(html).toContain('name="apple-mobile-web-app-title" content="RongMap"');
-  const response = await request.get('/manifest.webmanifest');
+test('installation metadata and icon fallbacks are available without a session on every entry route', async ({ request }) => {
+  const { createHash } = require('node:crypto');
+  let head;
+  for (const path of ['/', '/app/map', '/app/locations', '/app/travel', '/auth/login', '/share/test']) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).toContain('name="apple-mobile-web-app-title" content="RongMap"');
+    const metadata = html.match(/<head>[\s\S]*?<\/head>/)[0];
+    if (head) expect(metadata).toBe(head);
+    head = metadata;
+  }
+  const manifestUrl = head.match(/rel="manifest" href="([^"]+)"/)[1];
+  const response = await request.get(manifestUrl);
   expect(response.ok()).toBeTruthy();
   const manifest = await response.json();
   expect(manifest.start_url).toBe('/app/map');
+  expect(manifest.short_name).toBe('RongMap');
   expect(manifest.display).toBe('standalone');
-  for (const icon of [{ src: '/apple-touch-icon.png', sizes: '180x180' }, ...manifest.icons]) {
+  const touchUrl = head.match(/rel="apple-touch-icon"[^>]+href="([^"]+)"/)[1];
+  for (const icon of [
+    { src: touchUrl, sizes: '180x180' },
+    { src: '/apple-touch-icon.png', sizes: '180x180' },
+    { src: '/apple-touch-icon-precomposed.png', sizes: '180x180' },
+    { src: '/favicon-32.png', sizes: '32x32' }, ...manifest.icons
+  ]) {
     const image = await request.get(icon.src);
     expect(image.status()).toBe(200);
     expect(image.headers()['content-type']).toContain('image/png');
@@ -334,7 +350,19 @@ test('installation metadata and PNG icons are available without a session', asyn
     const size = Number(icon.sizes.split('x')[0]);
     expect(png.readUInt32BE(16)).toBe(size);
     expect(png.readUInt32BE(20)).toBe(size);
+    if (icon.src.includes('?v=')) expect(icon.src.split('?v=')[1]).toBe(createHash('sha256').update(png).digest('hex').slice(0, 12));
   }
+  for (const [, href] of head.matchAll(/href="([^"]+\?v=[^"]+)"/g)) {
+    const asset = await request.get(href);
+    expect(asset.status()).toBe(200);
+    expect(href.split('?v=')[1]).toBe(createHash('sha256').update(await asset.body()).digest('hex').slice(0, 12));
+  }
+  const ico = await request.get('/favicon.ico');
+  expect(ico.status()).toBe(200);
+  const bytes = await ico.body();
+  expect(bytes.readUInt16LE(2)).toBe(1);
+  expect(bytes.readUInt16LE(4)).toBe(1);
+  expect(bytes.subarray(22)).toEqual(await (await request.get('/favicon-32.png')).body());
 });
 
 test('mobile sheets isolate background and restore focus without losing search', async ({ page }) => {
@@ -398,4 +426,35 @@ test('closing a confirmation and its underlying sheet releases the scroll lock',
   expect(await page.evaluate(() => document.body.style.overflow)).toBe('');
   expect(await page.locator('.locations-page').evaluate((node) => node.inert)).toBe(false);
   expect(await page.locator('.mobile-tabs').evaluate((node) => node.inert)).toBe(false);
+});
+
+for (const width of [320, 390, 1440]) test(`location transfer controls respect mobile scope at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto('/app/locations');
+  const panel = page.locator('.location-panel');
+  await expect(panel).toBeVisible();
+  for (const name of ['批量导入', '导出 JSON', '导出 CSV']) {
+    const button = panel.getByRole('button', { name, exact: true });
+    if (width < 768) await expect(button).toBeHidden(); else await expect(button).toBeVisible();
+  }
+  if (width < 768) {
+    await expect(page.getByRole('button', { name: '导入', exact: true })).toBeHidden();
+    await page.getByRole('button', { name: '添加', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
+test('location menus dismiss on outside click and Escape', async ({ page }) => {
+  await page.goto('/app/locations');
+  const menu = page.getByRole('button', { name: '打开 地点 1 操作菜单', exact: true });
+  await menu.click();
+  await expect(menu).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('heading', { name: '地点管理' }).click();
+  await expect(menu).toHaveAttribute('aria-expanded', 'false');
+  await menu.click();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeFocused();
+  await expect(menu).toHaveAttribute('aria-expanded', 'false');
 });

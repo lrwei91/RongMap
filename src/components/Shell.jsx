@@ -88,14 +88,16 @@ export function TopBar({ route, filteredCount, totalCount, members, onAdd, onImp
         <div className="member-stack" aria-label={`${members.length} 位空间成员`}>
           {members.slice(0, 4).map((member) => <Avatar member={member} small key={member.id} />)}
         </div>
-        <button type="button" className="button button--quiet desktop-action" onClick={onImport}>导入</button>
-        <button type="button" className="button button--primary desktop-action" onClick={onAdd}>添加地点</button>
+        {route === 'map' || route === 'locations' ? <>
+          <button type="button" className="button button--quiet desktop-action" onClick={onImport}>导入</button>
+          <button type="button" className="button button--primary desktop-action" onClick={onAdd}>添加地点</button>
+        </> : null}
       </div>
     </header>
   );
 }
 
-export function MobileTopBar({ space, members, filteredCount, totalCount }) {
+export function MobileTopBar({ space, members, filteredCount, totalCount, route }) {
   return (
     <header className="mobile-top-bar">
       <div>
@@ -103,7 +105,7 @@ export function MobileTopBar({ space, members, filteredCount, totalCount }) {
         <strong>{space?.name || '亲友共享地图'}</strong>
       </div>
       <div className="mobile-top-bar__meta">
-        <span>{filteredCount}/{totalCount}</span>
+        {route === 'map' || route === 'locations' ? <span>{filteredCount}/{totalCount}</span> : null}
         {members[0] ? <Avatar member={members[0]} small /> : null}
       </div>
     </header>
@@ -158,6 +160,7 @@ export function AppShell({ children, route, onNavigate, onAdd, onImport, data, f
           onImport={onImport}
         />
         <MobileTopBar
+          route={route}
           space={data.space}
           members={data.members}
           filteredCount={filteredCount}

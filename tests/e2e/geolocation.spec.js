@@ -40,8 +40,14 @@ for (const width of [390, 1440]) test(`location marker and accuracy at ${width}p
   await page.setViewportSize({ width, height: 900 });
   await page.goto('/app/map');
   const button = page.getByRole('button', { name: '定位我的位置' });
+  // Hold the callback until the pending state has been observed; a 30ms timer is racy under load.
+  await page.evaluate(() => {
+    const original = navigator.geolocation.getCurrentPosition;
+    navigator.geolocation.getCurrentPosition = (ok, fail) => { window.locationTest.release = () => { navigator.geolocation.getCurrentPosition = original; original(ok, fail); }; };
+  });
   await button.click();
   await expect(button).toBeDisabled();
+  await page.evaluate(() => window.locationTest.release());
   await expect(page.getByRole('img', { name: '我的位置' })).toBeVisible();
   await expect(page.locator('.map-location-status')).toContainText('精度约 150 米');
   expect(await page.evaluate(() => ({ center: window.locationTest.map.center, conversion: window.locationTest.conversion, radius: window.locationTest.circles[0].options.radius }))).toEqual({ center: [119.301, 26.058], conversion: { input: [119.296531, 26.061473], type: 'gps' }, radius: 150 });
