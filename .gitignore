@@ -24,3 +24,12 @@ CONTEXT.md
 
 .cursor/
 .pytest_cache/
+
+# iOS / Xcode 构建产物与本地用户状态
+ios/build/
+**/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+*.xcactivitylog
+*.pcm
+*.timestamp
