@@ -5,5 +5,8 @@
   "description": "RongMap 亲友共享地点地图 · 微信小程序版",
   "dependencies": {
     "@tencent-ai/workbuddy-cloud-sdk": "dev"
+  },
+  "devDependencies": {
+    "miniprogram-automator": "^0.13.0"
   }
 }

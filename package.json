@@ -11,6 +11,7 @@
     "test": "vitest run src lib api",
     "test:e2e": "playwright test",
     "backup:kv": "node scripts/backup-kv.js",
+    "sync:miniprogram": "node scripts/sync-to-miniprogram.js",
     "migrate:shared": "node scripts/migrate-shared-data.js",
     "reset:space": "node scripts/reset-space.js"
   },
